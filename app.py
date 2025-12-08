@@ -112,6 +112,14 @@ def index():
             if not selected_date:
                 return render_template('index.html', stats=None, chart_data=[], history=[])
 
+            # Format the selected date to Brazilian format for display
+            from datetime import datetime
+            try:
+                dt_obj = datetime.strptime(str(selected_date), '%Y-%m-%d')
+                data_ref_formatada = dt_obj.strftime('%d/%m/%Y')
+            except:
+                data_ref_formatada = str(selected_date)
+
             # 3. Estatísticas
             sql_stats = text("""
                 SELECT 
@@ -139,7 +147,7 @@ def index():
             chart_data = conn.execute(sql_chart, {"data": selected_date}).mappings().all()
             chart_data = list(reversed(chart_data))
 
-            return render_template('index.html', stats=stats, data_ref=selected_date, chart_data=chart_data, history=history_list)
+            return render_template('index.html', stats=stats, data_ref=data_ref_formatada, chart_data=chart_data, history=history_list)
             
     except Exception as e:
         return render_template('index.html', stats=None, chart_data=[], error_msg=f"Erro Geral: {str(e)}")
