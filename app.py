@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from sqlalchemy import create_engine, text, inspect
 import sys
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Carrega .env se existir (apenas local)
 load_dotenv()
@@ -113,11 +114,11 @@ def index():
                 return render_template('index.html', stats=None, chart_data=[], history=[])
 
             # Format the selected date to Brazilian format for display
-            from datetime import datetime
             try:
                 dt_obj = datetime.strptime(str(selected_date), '%Y-%m-%d')
                 data_ref_formatada = dt_obj.strftime('%d/%m/%Y')
-            except:
+            except ValueError:
+                # If date format is invalid, use the original value
                 data_ref_formatada = str(selected_date)
 
             # 3. Estatísticas
