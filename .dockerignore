@@ -1,0 +1,39 @@
+# Git files
+.git
+.gitignore
+
+# Environment files
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.zip
+*.tar.gz
+
+# CSV data files (if large)
+*.csv
+
+# SQL dumps
+*.sql
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

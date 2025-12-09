@@ -1,13 +1,8 @@
 # Project Python dependencies
-# Added openpyxl to support Excel exports (pandas ExcelWriter engine)
-openpyxl
-
-# Optional common deps used by the app (unversioned here; lock versions as needed)
-Flask
-pandas
-SQLAlchemyflask
-pandas
-sqlalchemy
-pymysql
-python-dotenv
-cryptography
+Flask==3.0.0
+pandas==2.1.4
+SQLAlchemy==2.0.23
+pymysql==1.1.0
+python-dotenv==1.0.0
+cryptography==41.0.7
+openpyxl==3.1.2
