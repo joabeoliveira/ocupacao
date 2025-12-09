@@ -178,6 +178,42 @@
     </div>
     <script>
         // Gráfico de Evolução Mensal das Taxas de Ocupação Geral
+        const evolucaoLabels = {{ evolucao_labels | safe }};
+        const evolucaoData = {{ evolucao_data | safe }};
+        const ctxEvolucao = document.getElementById('grafico-evolucao').getContext('2d');
+        new Chart(ctxEvolucao, {
+            type: 'line',
+            data: {
+                labels: evolucaoLabels,
+                datasets: [{
+                    label: 'Ocupados',
+                    data: evolucaoData,
+                    borderColor: '#008B8B',
+                    backgroundColor: 'rgba(0,139,139,0.1)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#008B8B',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f3f4f6' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
         const evolucaoLabels = [{% for item in evolucao %}'{{ item.mes }}'{% if not loop.last %}, {% endif %}{% endfor %}];
         const evolucaoData = [{% for item in evolucao %}{{ ((item.ocupados / item.total) * 100) | round(1) }}{% if not loop.last %}, {% endif %}{% endfor %}];
         const ctxEvolucao = document.getElementById('grafico-evolucao').getContext('2d');

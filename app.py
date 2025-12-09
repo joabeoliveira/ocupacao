@@ -141,7 +141,8 @@ def index():
 
             import json
             labels_js = json.dumps([row['dia'] for row in chart_data], ensure_ascii=False)
-            data_js = json.dumps([row['ocupados'] for row in chart_data], ensure_ascii=False)
+            # Converte Decimal para float
+            data_js = json.dumps([float(row['ocupados']) for row in chart_data], ensure_ascii=False)
             return render_template('index.html', stats=stats, data_ref=selected_date, chart_data=chart_data, history=history_list, labels_js=labels_js, data_js=data_js)
             
     except Exception as e:
@@ -305,6 +306,10 @@ def painel():
             """)
             predios = conn.execute(sql_predio, params).mappings().all()
 
-            return render_template('painel.html', stats=stats, filtros=request.args, evolucao=evolucao, clinicas=clinicas, predios=predios)
+            import json
+            # Prepara arrays para gráfico de evolução mensal
+            evolucao_labels = json.dumps([row['mes'] for row in evolucao], ensure_ascii=False)
+            evolucao_data = json.dumps([float(row['ocupados']) for row in evolucao], ensure_ascii=False)
+            return render_template('painel.html', stats=stats, filtros=request.args, evolucao=evolucao, clinicas=clinicas, predios=predios, evolucao_labels=evolucao_labels, evolucao_data=evolucao_data)
     except Exception as e:
         return render_template('painel.html', stats=None, chart_data=[], error_msg=f"Erro: {str(e)}")
