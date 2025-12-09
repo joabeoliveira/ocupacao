@@ -578,14 +578,30 @@
                     evolucaoChart.destroy();
                 }
                 
-                // Cores baseadas no tema
+                // Cores baseadas no tema (mais claras no tema light) e plugin de sombra
                 const theme = document.documentElement.getAttribute('data-theme');
                 const isDark = theme !== 'light';
-                const lineColor = isDark ? '#60A5FA' : '#2563EB';
+                const lineColor = isDark ? '#60A5FA' : '#93C5FD';
                 const gridColor = isDark ? '#374151' : '#E5E7EB';
                 const textColor = isDark ? '#9CA3AF' : '#6B7280';
                 const legendColor = isDark ? '#E5E7EB' : '#374151';
-                
+                const bgColor = isDark ? 'rgba(96,165,250,0.12)' : 'rgba(147,197,253,0.35)';
+
+                // Plugin para aplicar sombra sutil sob as linhas/barras
+                const chartShadowPlugin = {
+                    id: 'shadowPlugin',
+                    beforeDatasetsDraw(chart, args, options) {
+                        const ctx = chart.ctx;
+                        ctx.save();
+                        const cfg = chart.config.options.plugins && chart.config.options.plugins.shadow || {};
+                        ctx.shadowColor = cfg.color || (isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)');
+                        ctx.shadowBlur = cfg.blur || 12;
+                    },
+                    afterDatasetsDraw(chart, args, options) {
+                        chart.ctx.restore();
+                    }
+                };
+
                 evolucaoChart = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -594,14 +610,15 @@
                             label: 'Taxa de Ocupação (%)',
                             data: data.data,
                             borderColor: lineColor,
-                            backgroundColor: isDark ? 'rgba(96,165,250,0.1)' : 'rgba(37,99,235,0.1)',
+                            backgroundColor: bgColor,
                             borderWidth: 3,
-                            tension: 0.4,
+                            tension: 0.35,
                             fill: true,
                             pointRadius: 5,
                             pointHoverRadius: 7
                         }]
                     },
+                    plugins: [chartShadowPlugin],
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
@@ -623,6 +640,7 @@
                             }
                         },
                         plugins: {
+                            shadow: { color: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)', blur: 12 },
                             legend: {
                                 display: true,
                                 position: 'top',
@@ -661,13 +679,28 @@
                     clinicaChart.destroy();
                 }
                 
-                // Cores baseadas no tema
+                // Cores baseadas no tema (mais suaves no modo claro) e plugin de sombra
                 const theme = document.documentElement.getAttribute('data-theme');
                 const isDark = theme !== 'light';
-                const barColor = isDark ? '#34D399' : '#10B981';
+                const barColor = isDark ? '#34D399' : '#A7F3D0';
+                const barBorder = isDark ? '#10B981' : '#059669';
                 const gridColor = isDark ? '#374151' : '#E5E7EB';
                 const textColor = isDark ? '#9CA3AF' : '#6B7280';
-                
+
+                const chartShadowPlugin = {
+                    id: 'shadowPlugin',
+                    beforeDatasetsDraw(chart, args, options) {
+                        const ctx = chart.ctx;
+                        ctx.save();
+                        const cfg = chart.config.options.plugins && chart.config.options.plugins.shadow || {};
+                        ctx.shadowColor = cfg.color || (isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)');
+                        ctx.shadowBlur = cfg.blur || 10;
+                    },
+                    afterDatasetsDraw(chart, args, options) {
+                        chart.ctx.restore();
+                    }
+                };
+
                 clinicaChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -675,11 +708,12 @@
                         datasets: [{
                             label: 'Taxa de Ocupação (%)',
                             data: data.data,
-                            backgroundColor: barColor,
-                            borderColor: isDark ? '#10B981' : '#059669',
+                            backgroundColor: isDark ? barColor : 'rgba(167,243,208,0.75)',
+                            borderColor: barBorder,
                             borderWidth: 1
                         }]
                     },
+                    plugins: [chartShadowPlugin],
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
@@ -702,9 +736,8 @@
                             }
                         },
                         plugins: {
-                            legend: {
-                                display: false
-                            },
+                            shadow: { color: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)', blur: 10 },
+                            legend: { display: false },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {

@@ -336,14 +336,29 @@
                     currentChart.destroy();
                 }
                 
-                // Cores baseadas no tema
+                // Cores baseadas no tema (modo claro usa tons mais suaves) e sombra sutil
                 const theme = document.documentElement.getAttribute('data-theme');
                 const isDark = theme !== 'light';
-                const lineColor = isDark ? '#60A5FA' : '#2563EB';
+                const lineColor = isDark ? '#60A5FA' : '#93C5FD';
                 const gridColor = isDark ? '#374151' : '#E5E7EB';
                 const textColor = isDark ? '#9CA3AF' : '#6B7280';
                 const legendColor = isDark ? '#E5E7EB' : '#374151';
-                
+                const bgColor = isDark ? 'rgba(96,165,250,0.12)' : 'rgba(147,197,253,0.35)';
+
+                const chartShadowPlugin = {
+                    id: 'shadowPlugin',
+                    beforeDatasetsDraw(chart, args, options) {
+                        const ctx = chart.ctx;
+                        ctx.save();
+                        const cfg = chart.config.options.plugins && chart.config.options.plugins.shadow || {};
+                        ctx.shadowColor = cfg.color || (isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)');
+                        ctx.shadowBlur = cfg.blur || 12;
+                    },
+                    afterDatasetsDraw(chart, args, options) {
+                        chart.ctx.restore();
+                    }
+                };
+
                 currentChart = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -352,7 +367,7 @@
                             label: 'Pacientes Internados',
                             data: chartData.data,
                             borderColor: lineColor,
-                            backgroundColor: isDark ? 'rgba(96,165,250,0.1)' : 'rgba(37,99,235,0.1)',
+                            backgroundColor: bgColor,
                             borderWidth: 2,
                             pointRadius: 4,
                             pointBackgroundColor: lineColor,
@@ -360,6 +375,7 @@
                             fill: true
                         }]
                     },
+                    plugins: [chartShadowPlugin],
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
@@ -375,6 +391,7 @@
                             }
                         },
                         plugins: {
+                            shadow: { color: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)', blur: 12 },
                             legend: { 
                                 display: true,
                                 labels: { color: legendColor }
