@@ -22,6 +22,39 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* Variáveis de tema */
+        :root {
+            --bg-primary: #111827;
+            --bg-secondary: #1F2937;
+            --bg-tertiary: #374151;
+            --text-primary: #F9FAFB;
+            --text-secondary: #D1D5DB;
+            --text-tertiary: #9CA3AF;
+            --border-color: #374151;
+            --card-bg: linear-gradient(to bottom right, #1F2937, #111827);
+            --sidebar-bg: #000000;
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #F3F4F6;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #E5E7EB;
+            --text-primary: #111827;
+            --text-secondary: #374151;
+            --text-tertiary: #6B7280;
+            --border-color: #E5E7EB;
+            --card-bg: linear-gradient(to bottom right, #FFFFFF, #F9FAFB);
+            --sidebar-bg: #1E3A8A;
+        }
+        
+        /* Classes utilitárias para tema */
+        .bg-theme-primary { background-color: var(--bg-primary); }
+        .bg-theme-secondary { background: var(--card-bg); }
+        .text-theme-primary { color: var(--text-primary); }
+        .text-theme-secondary { color: var(--text-secondary); }
+        .text-theme-tertiary { color: var(--text-tertiary); }
+        .border-theme { border-color: var(--border-color); }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -53,11 +86,11 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 font-sans">
+<body class="font-sans" style="background-color: var(--bg-primary);">
     <!-- Sidebar -->
     <div class="flex">
-        <aside class="w-64 h-screen bg-black text-white flex flex-col fixed left-0 top-0 z-10 shadow-2xl border-r border-gray-800">
-            <div class="flex flex-col items-center justify-center h-20 border-b border-blue-800 py-2">
+        <aside class="w-64 h-screen text-white flex flex-col fixed left-0 top-0 z-10 shadow-2xl" style="background-color: var(--sidebar-bg); border-right: 1px solid var(--border-color);">
+            <div class="flex flex-col items-center justify-center h-20 py-2" style="border-bottom: 1px solid #1E40AF;">
                 <div class="flex items-center">
                     <i class="fas fa-hospital-alt fa-2x mr-2"></i>
                     <span class="font-semibold text-xl tracking-tight">NIR Dashboard</span>
@@ -99,6 +132,10 @@
                             </div>
                         </div>
                         <div class="flex gap-2">
+                            <button onclick="toggleTheme()" id="theme-toggle"
+                                class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition">
+                                <i class="fas fa-sun" id="theme-icon"></i>
+                            </button>
                             <button onclick="toggleFilters()" 
                                 class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded transition">
                                 <i class="fas fa-filter mr-2"></i>
@@ -365,6 +402,34 @@
         let clinicaChart = null;
         let currentFilters = {};
 
+        // Theme toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Update icon
+            const icon = document.getElementById('theme-icon');
+            icon.className = newTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            
+            // Reload charts with new theme colors
+            if (evolucaoChart) loadEvolucaoChart();
+            if (clinicaChart) loadClinicaChart();
+        }
+        
+        // Load theme from localStorage
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const icon = document.getElementById('theme-icon');
+            if (icon) {
+                icon.className = savedTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            }
+        }
+
         // Toggle filters panel
         function toggleFilters() {
             const panel = document.getElementById('filters-panel');
@@ -513,6 +578,14 @@
                     evolucaoChart.destroy();
                 }
                 
+                // Cores baseadas no tema
+                const theme = document.documentElement.getAttribute('data-theme');
+                const isDark = theme !== 'light';
+                const lineColor = isDark ? '#60A5FA' : '#2563EB';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                const textColor = isDark ? '#9CA3AF' : '#6B7280';
+                const legendColor = isDark ? '#E5E7EB' : '#374151';
+                
                 evolucaoChart = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -520,8 +593,8 @@
                         datasets: [{
                             label: 'Taxa de Ocupação (%)',
                             data: data.data,
-                            borderColor: '#60A5FA',
-                            backgroundColor: 'rgba(96,165,250,0.1)',
+                            borderColor: lineColor,
+                            backgroundColor: isDark ? 'rgba(96,165,250,0.1)' : 'rgba(37,99,235,0.1)',
                             borderWidth: 3,
                             tension: 0.4,
                             fill: true,
@@ -537,15 +610,15 @@
                                 beginAtZero: true,
                                 max: 100,
                                 ticks: {
-                                    color: '#9CA3AF',
+                                    color: textColor,
                                     callback: function(value) {
                                         return value + '%';
                                     }
                                 },
-                                grid: { color: '#374151' }
+                                grid: { color: gridColor }
                             },
                             x: {
-                                ticks: { color: '#9CA3AF' },
+                                ticks: { color: textColor },
                                 grid: { display: false }
                             }
                         },
@@ -553,7 +626,7 @@
                             legend: {
                                 display: true,
                                 position: 'top',
-                                labels: { color: '#E5E7EB' }
+                                labels: { color: legendColor }
                             },
                             tooltip: {
                                 callbacks: {
@@ -588,6 +661,13 @@
                     clinicaChart.destroy();
                 }
                 
+                // Cores baseadas no tema
+                const theme = document.documentElement.getAttribute('data-theme');
+                const isDark = theme !== 'light';
+                const barColor = isDark ? '#34D399' : '#10B981';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                const textColor = isDark ? '#9CA3AF' : '#6B7280';
+                
                 clinicaChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -595,8 +675,8 @@
                         datasets: [{
                             label: 'Taxa de Ocupação (%)',
                             data: data.data,
-                            backgroundColor: '#34D399',
-                            borderColor: '#10B981',
+                            backgroundColor: barColor,
+                            borderColor: isDark ? '#10B981' : '#059669',
                             borderWidth: 1
                         }]
                     },
@@ -609,15 +689,15 @@
                                 beginAtZero: true,
                                 max: 100,
                                 ticks: {
-                                    color: '#9CA3AF',
+                                    color: textColor,
                                     callback: function(value) {
                                         return value + '%';
                                     }
                                 },
-                                grid: { color: '#374151' }
+                                grid: { color: gridColor }
                             },
                             y: {
-                                ticks: { color: '#9CA3AF' },
+                                ticks: { color: textColor },
                                 grid: { display: false }
                             }
                         },
@@ -663,6 +743,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            loadTheme();
             loadVersion();
             loadStats();
             loadEvolucaoChart();
