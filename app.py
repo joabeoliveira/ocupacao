@@ -1,8 +1,9 @@
 import os
 import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from sqlalchemy import create_engine, text, inspect
 import sys
+from io import BytesIO
 from dotenv import load_dotenv
 from VERSION import get_version
 
@@ -464,10 +465,242 @@ def api_painel_clinicas():
     except Exception as e:
         return {"error": str(e)}, 500
 
+
+@app.route('/api/tempo_permanencia')
+def api_tempo_permanencia():
+    """Retorna métricas e lista de pacientes por tempo de permanência"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        # filtros
+        selected_date = request.args.get('data_referencia')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        clinica = request.args.get('clinica')
+        predio = request.args.get('predio')
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+
+        with engine.connect() as conn:
+            # escolhe data se não informada
+            if not selected_date:
+                sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
+                selected_date = conn.execute(sql_last).scalar()
+                if not selected_date:
+                    return {"error": "Sem dados disponíveis"}, 404
+
+            # Monta filtros WHERE para a seleção de pacientes ocupados na data
+            where_conditions = ["data_referencia = :data_referencia", "status_leito = 'OCUPADO'"]
+            params = {"data_referencia": selected_date}
+
+            if clinica:
+                where_conditions.append("nome_enfermaria = :clinica")
+                params['clinica'] = clinica
+
+            if predio == '1':
+                where_conditions.append("num_enf BETWEEN 111 AND 199")
+            elif predio == '2':
+                where_conditions.append("num_enf BETWEEN 200 AND 299")
+
+            # período filtrado por data_referencia (aplica quando informado)
+            if periodo_inicio and periodo_fim:
+                where_conditions = ["data_referencia BETWEEN :periodo_inicio AND :periodo_fim", "status_leito = 'OCUPADO'"]
+                params = {'periodo_inicio': periodo_inicio, 'periodo_fim': periodo_fim}
+
+            where_clause = " AND ".join(where_conditions)
+
+            # Consulta por paciente (agrupa por identificador preferencialmente pelo prontuário)
+            sql_patients = text(f"""
+                SELECT
+                    COALESCE(prontuario, cns_paciente, nome_paciente) as patient_id,
+                    MIN(data_internacao) as data_internacao,
+                    MAX(nome_paciente) as nome_paciente,
+                    MAX(prontuario) as prontuario,
+                    MAX(idade) as idade,
+                    MAX(sexo) as sexo,
+                    MAX(nome_enfermaria) as nome_enfermaria,
+                    TIMESTAMPDIFF(DAY, MIN(data_internacao), :data_referencia) as dias
+                FROM historico_ocupacao_completo
+                WHERE {where_clause}
+                GROUP BY patient_id
+                ORDER BY dias DESC
+            """)
+
+            rows = conn.execute(sql_patients, params).mappings().all()
+
+            # Transforma em lista python
+            patients = []
+            dias_list = []
+            for r in rows:
+                dias = int(r['dias']) if r['dias'] is not None else 0
+                dias_list.append(dias)
+                patients.append({
+                    'patient_id': r['patient_id'],
+                    'nome': r['nome_paciente'] or '',
+                    'prontuario': r['prontuario'],
+                    'idade': int(r['idade']) if r['idade'] is not None else None,
+                    'sexo': r['sexo'],
+                    'clinica': r['nome_enfermaria'],
+                    'data_internacao': str(r['data_internacao']) if r['data_internacao'] is not None else None,
+                    'dias': dias
+                })
+
+            total = len(patients)
+            avg_los = round(sum(dias_list) / total, 1) if total > 0 else 0
+
+            # Mediana em Python
+            median_los = 0
+            if total > 0:
+                sorted_days = sorted(dias_list)
+                mid = total // 2
+                if total % 2 == 0:
+                    median_los = int((sorted_days[mid - 1] + sorted_days[mid]) / 2)
+                else:
+                    median_los = int(sorted_days[mid])
+
+            # Counters
+            long_gt_30 = sum(1 for d in dias_list if d > 30)
+            long_gt_30_60 = sum(1 for p, d in zip(patients, dias_list) if d > 30 and (p.get('idade') or 0) >= 60)
+            long_gt_30_ped = sum(1 for p, d in zip(patients, dias_list) if d > 30 and (p.get('idade') is not None and p.get('idade') < 18))
+
+            # Histogram buckets
+            buckets = {'0-7': 0, '8-14': 0, '15-30': 0, '31-60': 0, '61-90': 0, '>90': 0}
+            for d in dias_list:
+                if d <= 7:
+                    buckets['0-7'] += 1
+                elif d <= 14:
+                    buckets['8-14'] += 1
+                elif d <= 30:
+                    buckets['15-30'] += 1
+                elif d <= 60:
+                    buckets['31-60'] += 1
+                elif d <= 90:
+                    buckets['61-90'] += 1
+                else:
+                    buckets['>90'] += 1
+
+            # Paginação
+            start = (page - 1) * per_page
+            end = start + per_page
+            page_items = patients[start:end]
+
+            # Mask names for frontend display (keep full name available only for export endpoint)
+            def mask_name(full):
+                if not full:
+                    return ''
+                parts = full.split()
+                if len(parts) == 1:
+                    s = parts[0]
+                    if len(s) <= 2:
+                        return s[0] + '*'
+                    return s[0] + '*'*(len(s)-2) + s[-1]
+                # first name + last initial
+                first = parts[0]
+                last = parts[-1]
+                return f"{first} {last[0]}."
+
+            for it in page_items:
+                it['nome_masked'] = mask_name(it['nome'])
+
+            return jsonify({
+                'data_referencia': str(selected_date),
+                'total_patients': total,
+                'avg_los': avg_los,
+                'median_los': median_los,
+                'long_gt_30': long_gt_30,
+                'long_gt_30_60': long_gt_30_60,
+                'long_gt_30_ped': long_gt_30_ped,
+                'histogram': buckets,
+                'page': page,
+                'per_page': per_page,
+                'patients': page_items
+            })
+
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/tempo_permanencia/export')
+def api_tempo_permanencia_export():
+    """Exporta a lista completa de longa permanência (>30 dias) em Excel (full names)"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        selected_date = request.args.get('data_referencia')
+        clinica = request.args.get('clinica')
+        predio = request.args.get('predio')
+
+        with engine.connect() as conn:
+            if not selected_date:
+                sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
+                selected_date = conn.execute(sql_last).scalar()
+                if not selected_date:
+                    return {"error": "Sem dados disponíveis"}, 404
+
+            where_conditions = ["data_referencia = :data_referencia", "status_leito = 'OCUPADO'"]
+            params = {"data_referencia": selected_date}
+            if clinica:
+                where_conditions.append("nome_enfermaria = :clinica")
+                params['clinica'] = clinica
+            if predio == '1':
+                where_conditions.append("num_enf BETWEEN 111 AND 199")
+            elif predio == '2':
+                where_conditions.append("num_enf BETWEEN 200 AND 299")
+
+            where_clause = " AND ".join(where_conditions)
+
+            sql_export = text(f"""
+                SELECT
+                    COALESCE(prontuario, cns_paciente, nome_paciente) as patient_id,
+                    MIN(data_internacao) as data_internacao,
+                    MAX(nome_paciente) as nome_paciente,
+                    MAX(prontuario) as prontuario,
+                    MAX(idade) as idade,
+                    MAX(sexo) as sexo,
+                    MAX(nome_enfermaria) as nome_enfermaria,
+                    TIMESTAMPDIFF(DAY, MIN(data_internacao), :data_referencia) as dias
+                FROM historico_ocupacao_completo
+                WHERE {where_clause}
+                GROUP BY patient_id
+                HAVING dias > 30
+                ORDER BY dias DESC
+            """)
+
+            rows = conn.execute(sql_export, params).mappings().all()
+            # Converte para DataFrame
+            df = pd.DataFrame([{
+                'Nome': r['nome_paciente'],
+                'Prontuario': r['prontuario'],
+                'Idade': int(r['idade']) if r['idade'] is not None else None,
+                'Sexo': r['sexo'],
+                'Clinica': r['nome_enfermaria'],
+                'Data Internacao': r['data_internacao'],
+                'Dias Internado': int(r['dias'])
+            } for r in rows])
+
+            output = BytesIO()
+            # Escreve Excel
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='LongaPermanencia')
+            output.seek(0)
+
+            filename = f"longa_permanencia_{selected_date}.xlsx"
+            return send_file(output, download_name=filename, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    except Exception as e:
+        return {"error": str(e)}, 500
+
 # ROTA PARA O PAINEL (renderiza template estático)
 @app.route('/painel')
 def painel():
     return render_template('painel.html')
+
+
+@app.route('/tempo_permanencia')
+def tempo_permanencia():
+    return render_template('tempo_permanencia.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)

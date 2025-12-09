@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tempo de Permanência - NIR Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #111827;
+            --text-primary: #F9FAFB;
+            --card-bg: linear-gradient(to bottom right, #1F2937, #111827);
+        }
+        [data-theme="light"] {
+            --bg-primary: #F3F4F6;
+            --text-primary: #111827;
+            --card-bg: linear-gradient(to bottom right, #FFFFFF, #F9FAFB);
+        }
+        .bg-theme { background: var(--bg-primary); color: var(--text-primary); }
+    </style>
+</head>
+<body class="bg-theme font-sans" style="min-height:100vh;">
+    <div class="container mx-auto p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-2xl font-bold">Tempo de Permanência</h1>
+            <div>
+                <button onclick="toggleTheme()" id="theme-toggle" class="px-3 py-2 bg-gray-700 text-white rounded"><i id="theme-icon" class="fas fa-sun"></i></button>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="bg-white/5 p-4 rounded mb-4 border">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm">Data de Referência</label>
+                    <input type="date" id="filter-data" class="w-full px-3 py-2 rounded border">
+                </div>
+                <div>
+                    <label class="block text-sm">Clínica</label>
+                    <select id="filter-clinica" class="w-full px-3 py-2 rounded border">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm">Prédio</label>
+                    <select id="filter-predio" class="w-full px-3 py-2 rounded border">
+                        <option value="">Todos</option>
+                        <option value="1">Prédio 1</option>
+                        <option value="2">Prédio 2</option>
+                    </select>
+                </div>
+                <div class="flex items-end gap-2">
+                    <button onclick="applyFilters()" class="px-4 py-2 bg-blue-600 text-white rounded">Aplicar</button>
+                    <button onclick="clearFilters()" class="px-4 py-2 bg-gray-500 text-white rounded">Limpar</button>
+                    <button onclick="exportExcel()" id="export-btn" class="px-4 py-2 bg-green-600 text-white rounded">Exportar Excel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+            <div class="md:col-span-2 bg-white/5 p-4 rounded">
+                <div class="text-sm text-gray-400">Total Pacientes Internados</div>
+                <div id="kp-total" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-white/5 p-4 rounded">
+                <div class="text-sm text-gray-400">Permanência Média (dias)</div>
+                <div id="kp-avg" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-white/5 p-4 rounded">
+                <div class="text-sm text-gray-400">Mediana (dias)</div>
+                <div id="kp-med" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-white/5 p-4 rounded">
+                <div class="text-sm text-gray-400">>30 dias</div>
+                <div id="kp-30" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-white/5 p-4 rounded">
+                <div class="text-sm text-gray-400">>30 dias (>=60 anos)</div>
+                <div id="kp-30-60" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-white/5 p-4 rounded">
+                <div class="text-sm text-gray-400">>30 dias (Pediatria)</div>
+                <div id="kp-30-ped" class="text-2xl font-bold">-</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="bg-white/5 p-4 rounded">
+                <h3 class="font-bold mb-2">Histograma de Permanência</h3>
+                <div style="height:300px"><canvas id="histogramChart"></canvas></div>
+            </div>
+            <div class="bg-white/5 p-4 rounded">
+                <h3 class="font-bold mb-2">Longa Permanência por Clínica (Top 10)</h3>
+                <div style="height:300px"><canvas id="clinicaChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white/5 p-4 rounded">
+            <h3 class="font-bold mb-2">Pacientes - Longa Permanência (lista)</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full table-auto">
+                    <thead>
+                        <tr class="text-left text-sm text-gray-400">
+                            <th class="px-2 py-1">Nome</th>
+                            <th class="px-2 py-1">Prontuário</th>
+                            <th class="px-2 py-1">Idade</th>
+                            <th class="px-2 py-1">Clínica</th>
+                            <th class="px-2 py-1">Data Internação</th>
+                            <th class="px-2 py-1">Dias</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patients-body">
+                        <tr><td colspan="6" class="px-2 py-4 text-gray-400">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex justify-between items-center">
+                <div id="pagination-info"></div>
+                <div>
+                    <button onclick="prevPage()" class="px-3 py-1 bg-gray-600 text-white rounded">Anterior</button>
+                    <button onclick="nextPage()" class="px-3 py-1 bg-gray-600 text-white rounded">Próximo</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+let currentPage = 1;
+let perPage = 50;
+let currentFilters = {};
+let histChart = null;
+let clinicaChart = null;
+
+function toggleTheme(){
+    const html = document.documentElement;
+    const cur = html.getAttribute('data-theme') || 'dark';
+    const next = cur === 'light' ? 'dark' : 'light';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+}
+
+function loadTheme(){
+    const saved = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    const icon = document.getElementById('theme-icon');
+    if(icon) icon.className = saved === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+}
+
+function applyFilters(){
+    const data = document.getElementById('filter-data').value;
+    const clinica = document.getElementById('filter-clinica').value;
+    const predio = document.getElementById('filter-predio').value;
+    currentFilters = {};
+    if(data) currentFilters.data_referencia = data;
+    if(clinica) currentFilters.clinica = clinica;
+    if(predio) currentFilters.predio = predio;
+    currentPage = 1;
+    loadData();
+}
+function clearFilters(){
+    document.getElementById('filter-data').value = '';
+    document.getElementById('filter-clinica').value = '';
+    document.getElementById('filter-predio').value = '';
+    currentFilters = {};
+    currentPage = 1;
+    loadData();
+}
+
+async function loadClinicasFilter(){
+    try{
+        const res = await fetch('/api/painel/clinicas');
+        const data = await res.json();
+        const select = document.getElementById('filter-clinica');
+        data.labels.forEach(c => {
+            const opt = document.createElement('option'); opt.value=c; opt.textContent=c; select.appendChild(opt);
+        });
+    }catch(e){console.error(e)}
+}
+
+function maskName(full){
+    if(!full) return '';
+    const parts = full.split(' ');
+    if(parts.length===1){
+        const s = parts[0];
+        if(s.length<=2) return s[0] + '*';
+        return s[0] + '*'.repeat(Math.max(1,s.length-2)) + s.slice(-1);
+    }
+    return parts[0] + ' ' + parts[parts.length-1][0] + '.';
+}
+
+async function loadData(){
+    try{
+        const qs = new URLSearchParams({...currentFilters, page: currentPage, per_page: perPage}).toString();
+        const res = await fetch('/api/tempo_permanencia?' + qs);
+        const json = await res.json();
+        if(json.error){ console.error(json.error); return; }
+
+        document.getElementById('kp-total').textContent = json.total_patients;
+        document.getElementById('kp-avg').textContent = json.avg_los;
+        document.getElementById('kp-med').textContent = json.median_los;
+        document.getElementById('kp-30').textContent = json.long_gt_30;
+        document.getElementById('kp-30-60').textContent = json.long_gt_30_60;
+        document.getElementById('kp-30-ped').textContent = json.long_gt_30_ped;
+
+        // Histogram
+        const labels = Object.keys(json.histogram);
+        const values = Object.values(json.histogram);
+        const ctx = document.getElementById('histogramChart').getContext('2d');
+        if(histChart) histChart.destroy();
+        histChart = new Chart(ctx, {type:'bar', data:{labels, datasets:[{label:'Pacientes', data:values, backgroundColor:'rgba(59,130,246,0.8)'}]}});
+
+        // Clinica chart: fetch clinica breakdown separately
+        const clinRes = await fetch('/api/tempo_permanencia?'+ new URLSearchParams({...currentFilters, per_page:1}).toString());
+        const clinJson = await clinRes.json();
+        // We'll build top 10 from returned patients by counting per clinica client-side
+        const counts = {};
+        (clinJson.patients || []).forEach(p => { counts[p.clinica] = (counts[p.clinica] || 0) + 1; });
+        const clinLabels = Object.keys(counts).slice(0,10);
+        const clinVals = clinLabels.map(l => counts[l]);
+        const cctx = document.getElementById('clinicaChart').getContext('2d');
+        if(clinicaChart) clinicaChart.destroy();
+        clinicaChart = new Chart(cctx, {type:'bar', data:{labels:clinLabels, datasets:[{label:'Longa permanência', data:clinVals, backgroundColor:'rgba(16,185,129,0.8)'}]}});
+
+        // Table
+        const tbody = document.getElementById('patients-body'); tbody.innerHTML='';
+        const patients = json.patients || [];
+        for(const p of patients){
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td class="px-2 py-1">${p.nome_masked || maskName(p.nome)}</td>`+
+                           `<td class="px-2 py-1">${p.prontuario || ''}</td>`+
+                           `<td class="px-2 py-1">${p.idade || ''}</td>`+
+                           `<td class="px-2 py-1">${p.clinica || ''}</td>`+
+                           `<td class="px-2 py-1">${p.data_internacao || ''}</td>`+
+                           `<td class="px-2 py-1">${p.dias}</td>`;
+            tbody.appendChild(tr);
+        }
+        document.getElementById('pagination-info').textContent = `Página ${json.page} — mostrando ${patients.length} de ${json.total_patients}`;
+
+    }catch(e){console.error(e)}
+}
+
+function prevPage(){ if(currentPage>1){ currentPage--; loadData(); }}
+function nextPage(){ currentPage++; loadData(); }
+
+function exportExcel(){
+    const qs = new URLSearchParams(currentFilters).toString();
+    const url = '/api/tempo_permanencia/export' + (qs ? ('?' + qs) : '');
+    window.location = url;
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{ loadTheme(); loadClinicasFilter(); loadData(); });
+</script>
+</body>
+</html>
