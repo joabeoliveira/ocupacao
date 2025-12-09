@@ -58,9 +58,12 @@
     <!-- Sidebar -->
     <div class="flex">
         <aside class="w-64 h-screen bg-black text-white flex flex-col fixed left-0 top-0 z-10 shadow-2xl border-r border-gray-800">
-            <div class="flex items-center justify-center h-20 border-b border-blue-800">
-                <i class="fas fa-hospital-alt fa-2x mr-2"></i>
-                <span class="font-semibold text-xl tracking-tight">NIR Dashboard</span>
+            <div class="flex flex-col items-center justify-center h-20 border-b border-blue-800 py-2">
+                <div class="flex items-center">
+                    <i class="fas fa-hospital-alt fa-2x mr-2"></i>
+                    <span class="font-semibold text-xl tracking-tight">NIR Dashboard</span>
+                </div>
+                <span class="text-xs text-gray-400 mt-1" id="app-version">v3.0.0</span>
             </div>
             <nav class="flex-1 py-6">
                 <ul class="space-y-2">
@@ -371,8 +374,20 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        // Load version
+        async function loadVersion() {
+            try {
+                const response = await fetch('/api/version');
+                const data = await response.json();
+                document.getElementById('app-version').textContent = `v${data.version}`;
+            } catch (error) {
+                console.log('Versão estática mantida');
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            loadVersion();
             loadStats();
             loadChart();
             loadHistory();

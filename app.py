@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from sqlalchemy import create_engine, text, inspect
 import sys
 from dotenv import load_dotenv
+from VERSION import get_version
 
 # Carrega .env se existir (apenas local)
 load_dotenv()
@@ -151,6 +152,11 @@ def upload_file():
         return redirect(url_for('index'))
 
 # ===== ROTAS API REST =====
+@app.route('/api/version')
+def api_version():
+    """Retorna versão do sistema"""
+    return {"version": get_version()}
+
 @app.route('/api/stats')
 def api_stats():
     """Retorna estatísticas gerais em JSON"""
