@@ -3,13 +3,40 @@ Sistema de Ocupação de Leitos - NIR Dashboard
 Controle de Versão
 """
 
-VERSION = "3.0.0"
-VERSION_NAME = "Dark Theme Edition"
+VERSION = "3.1.0"
+VERSION_NAME = "Filters & Themes Edition"
 RELEASE_DATE = "2025-12-09"
 
 # Histórico de Versões
 CHANGELOG = """
 # Changelog
+
+## [3.1.0] - 2025-12-09 - Filters & Themes Edition
+### ✨ Novidades
+- Sistema de alternância de tema claro/escuro
+- Botão toggle de tema no header (☀️/🌙)
+- Persistência de tema com localStorage
+- Filtros funcionais completos no painel de ocupação
+
+### 🎨 Temas
+- Tema Escuro: Fundo preto, sidebar preta, gráficos em azul/verde claro
+- Tema Claro: Fundo cinza claro, sidebar azul, gráficos em azul/verde escuro
+- Variáveis CSS dinâmicas para transição suave
+- Gráficos Chart.js adaptam cores automaticamente
+
+### 🔍 Filtros
+- Filtro por Prédio (1 ou 2)
+- Filtro por Período (data inicial/final)
+- Filtro por Mês (1-12)
+- Filtro por Clínica (lista dinâmica)
+- Indicador visual de filtros ativos no header
+- Backend com suporte a query strings em todas APIs
+
+### 🔧 Melhorias
+- APIs /api/painel/* aceitam parâmetros de filtro
+- Cards e gráficos respondem aos filtros aplicados
+- Taxas recalculadas dinamicamente
+- Sincronização de tema entre páginas
 
 ## [3.0.0] - 2025-12-09 - Dark Theme Edition
 ### 🎨 Visual
