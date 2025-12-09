@@ -45,12 +45,52 @@
         input::placeholder {
             color: #6B7280 !important;
         }
+        
+        /* Responsive mobile menu */
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-hidden {
+            transform: translateX(-100%);
+        }
+        .menu-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9;
+        }
+        .menu-overlay.active {
+            display: block;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                z-index: 20 !important;
+            }
+            .sidebar-hidden {
+                transform: translateX(-100%);
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-theme font-sans" style="min-height:100vh;">
+    <!-- Mobile Menu Overlay -->
+    <div class="menu-overlay" id="menu-overlay" onclick="toggleMobileMenu()"></div>
+    
+    <!-- Mobile Hamburger Button -->
+    <button onclick="toggleMobileMenu()" class="fixed top-4 left-4 z-30 md:hidden bg-blue-600 text-white p-3 rounded-lg shadow-lg">
+        <i class="fas fa-bars" id="hamburger-icon"></i>
+    </button>
+
     <!-- Sidebar -->
     <div class="flex">
-        <aside class="w-64 h-screen text-white flex flex-col fixed left-0 top-0 z-10 shadow-2xl" style="background-color: var(--sidebar-bg); border-right: 1px solid var(--border-color);">
+        <aside class="sidebar sidebar-hidden md:sidebar-hidden-none w-64 h-screen text-white flex flex-col fixed left-0 top-0 z-10 shadow-2xl" id="sidebar" style="background-color: var(--sidebar-bg); border-right: 1px solid var(--border-color);">
             <div class="flex flex-col items-center justify-center h-20 py-2" style="border-bottom: 1px solid #1E40AF;">
                 <div class="flex items-center">
                     <i class="fas fa-hospital-alt fa-2x mr-2"></i>
@@ -83,8 +123,8 @@
         </aside>
 
         <!-- Main Content -->
-        <div class="flex-1 ml-64">
-            <div class="container mx-auto mt-8 px-4 pb-12">
+        <div class="main-content flex-1 md:ml-64">
+            <div class="container mx-auto mt-16 md:mt-8 px-4 pb-12">
                 <!-- Header -->
                 <div class="flex items-center justify-between mb-6 bg-white/5 p-4 rounded border" style="border-color: var(--border-color);">
                     <h1 class="text-2xl font-bold">Tempo de Permanência</h1>
@@ -217,6 +257,32 @@ function loadTheme(){
     const icon = document.getElementById('theme-icon');
     if(icon) icon.className = saved === 'light' ? 'fas fa-moon' : 'fas fa-sun';
 }
+
+// Toggle mobile menu
+function toggleMobileMenu() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('menu-overlay');
+    const icon = document.getElementById('hamburger-icon');
+    
+    sidebar.classList.toggle('sidebar-hidden');
+    overlay.classList.toggle('active');
+    
+    if (sidebar.classList.contains('sidebar-hidden')) {
+        icon.className = 'fas fa-bars';
+    } else {
+        icon.className = 'fas fa-times';
+    }
+}
+
+// Close mobile menu on window resize to desktop
+window.addEventListener('resize', () => {
+    if (window.innerWidth >= 768) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('menu-overlay');
+        sidebar.classList.remove('sidebar-hidden');
+        overlay.classList.remove('active');
+    }
+});
 
 function applyFilters(){
     const data = document.getElementById('filter-data').value;
