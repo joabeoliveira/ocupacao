@@ -55,6 +55,16 @@
         .text-theme-tertiary { color: var(--text-tertiary); }
         .border-theme { border-color: var(--border-color); }
         
+        /* Estilos para inputs e selects - texto sempre legível */
+        input, select {
+            background-color: #FFFFFF !important;
+            color: #111827 !important;
+            border-color: #D1D5DB !important;
+        }
+        input::placeholder {
+            color: #6B7280 !important;
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }

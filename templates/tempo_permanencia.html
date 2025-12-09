@@ -14,6 +14,9 @@
             --card-bg: linear-gradient(to bottom right, #1F2937, #111827);
             --sidebar-bg: #000000;
             --border-color: rgba(30, 64, 175, 0.5);
+            --input-bg: #FFFFFF;
+            --input-text: #111827;
+            --input-border: #D1D5DB;
         }
         [data-theme="light"] {
             --bg-primary: #F3F4F6;
@@ -21,8 +24,19 @@
             --card-bg: linear-gradient(to bottom right, #FFFFFF, #F9FAFB);
             --sidebar-bg: #1E3A8A;
             --border-color: rgba(59, 130, 246, 0.3);
+            --input-bg: #FFFFFF;
+            --input-text: #111827;
+            --input-border: #D1D5DB;
         }
         .bg-theme { background: var(--bg-primary); color: var(--text-primary); }
+        input, select {
+            background-color: var(--input-bg) !important;
+            color: var(--input-text) !important;
+            border-color: var(--input-border) !important;
+        }
+        input::placeholder {
+            color: #6B7280 !important;
+        }
     </style>
 </head>
 <body class="bg-theme font-sans" style="min-height:100vh;">
