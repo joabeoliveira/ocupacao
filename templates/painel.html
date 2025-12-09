@@ -33,6 +33,10 @@
             --border-color: #374151;
             --card-bg: linear-gradient(to bottom right, #1F2937, #111827);
             --sidebar-bg: #000000;
+            --chart-blue: rgba(59, 130, 246, 0.8);
+            --chart-green: rgba(34, 197, 94, 0.8);
+            --chart-text: #F9FAFB;
+            --chart-grid: rgba(255, 255, 255, 0.1);
         }
         
         [data-theme="light"] {
@@ -45,6 +49,10 @@
             --border-color: #E5E7EB;
             --card-bg: linear-gradient(to bottom right, #FFFFFF, #F9FAFB);
             --sidebar-bg: #1E3A8A;
+            --chart-blue: rgba(37, 99, 235, 0.8);
+            --chart-green: rgba(22, 163, 74, 0.8);
+            --chart-text: #111827;
+            --chart-grid: rgba(0, 0, 0, 0.1);
         }
         
         /* Classes utilitárias para tema */
@@ -594,14 +602,18 @@
                     evolucaoChart.destroy();
                 }
                 
-                // Cores baseadas no tema (mais claras no tema light) e plugin de sombra
+                // Cores baseadas no tema usando variáveis CSS
                 const theme = document.documentElement.getAttribute('data-theme');
                 const isDark = theme !== 'light';
-                const lineColor = isDark ? '#60A5FA' : '#93C5FD';
-                const gridColor = isDark ? '#374151' : '#E5E7EB';
-                const textColor = isDark ? '#9CA3AF' : '#6B7280';
+                const styles = getComputedStyle(document.documentElement);
+                const chartBlue = styles.getPropertyValue('--chart-blue').trim();
+                const chartText = styles.getPropertyValue('--chart-text').trim();
+                const chartGrid = styles.getPropertyValue('--chart-grid').trim();
+                const lineColor = isDark ? '#60A5FA' : '#2563EB';
+                const gridColor = chartGrid || (isDark ? '#374151' : '#E5E7EB');
+                const textColor = chartText || (isDark ? '#9CA3AF' : '#6B7280');
                 const legendColor = isDark ? '#E5E7EB' : '#374151';
-                const bgColor = isDark ? 'rgba(96,165,250,0.12)' : 'rgba(147,197,253,0.35)';
+                const bgColor = isDark ? 'rgba(96,165,250,0.12)' : 'rgba(37,99,235,0.20)';
 
                 // Plugin para aplicar sombra sutil sob as linhas/barras
                 const chartShadowPlugin = {
@@ -695,13 +707,17 @@
                     clinicaChart.destroy();
                 }
                 
-                // Cores baseadas no tema (mais suaves no modo claro) e plugin de sombra
+                // Cores baseadas no tema usando variáveis CSS
                 const theme = document.documentElement.getAttribute('data-theme');
                 const isDark = theme !== 'light';
-                const barColor = isDark ? '#34D399' : '#A7F3D0';
-                const barBorder = isDark ? '#10B981' : '#059669';
-                const gridColor = isDark ? '#374151' : '#E5E7EB';
-                const textColor = isDark ? '#9CA3AF' : '#6B7280';
+                const styles = getComputedStyle(document.documentElement);
+                const chartGreen = styles.getPropertyValue('--chart-green').trim();
+                const chartText = styles.getPropertyValue('--chart-text').trim();
+                const chartGrid = styles.getPropertyValue('--chart-grid').trim();
+                const barColor = isDark ? '#34D399' : '#16A34A';
+                const barBorder = isDark ? '#10B981' : '#15803D';
+                const gridColor = chartGrid || (isDark ? '#374151' : '#E5E7EB');
+                const textColor = chartText || (isDark ? '#9CA3AF' : '#6B7280');
 
                 const chartShadowPlugin = {
                     id: 'shadowPlugin',
@@ -724,7 +740,7 @@
                         datasets: [{
                             label: 'Taxa de Ocupação (%)',
                             data: data.data,
-                            backgroundColor: isDark ? barColor : 'rgba(167,243,208,0.75)',
+                            backgroundColor: isDark ? barColor : 'rgba(22,163,74,0.70)',
                             borderColor: barBorder,
                             borderWidth: 1
                         }]
