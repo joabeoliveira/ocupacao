@@ -1,4 +1,11 @@
-flask
+# Project Python dependencies
+# Added openpyxl to support Excel exports (pandas ExcelWriter engine)
+openpyxl
+
+# Optional common deps used by the app (unversioned here; lock versions as needed)
+Flask
+pandas
+SQLAlchemyflask
 pandas
 sqlalchemy
 pymysql

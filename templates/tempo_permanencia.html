@@ -61,27 +61,27 @@
 
         <!-- Cards -->
         <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-            <div class="md:col-span-2 bg-white/5 p-4 rounded">
+            <div class="md:col-span-2 bg-white/5 p-4 rounded" title="Número total de pacientes internados na data de referência">
                 <div class="text-sm text-gray-400">Total Pacientes Internados</div>
                 <div id="kp-total" class="text-2xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded">
+            <div class="bg-white/5 p-4 rounded" title="Média de dias internados (todos os pacientes)">
                 <div class="text-sm text-gray-400">Permanência Média (dias)</div>
                 <div id="kp-avg" class="text-2xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded">
+            <div class="bg-white/5 p-4 rounded" title="Mediana de dias internados (calculada no backend)">
                 <div class="text-sm text-gray-400">Mediana (dias)</div>
                 <div id="kp-med" class="text-2xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded">
+            <div class="bg-white/5 p-4 rounded" title="Pacientes com mais de 30 dias de internação">
                 <div class="text-sm text-gray-400">>30 dias</div>
                 <div id="kp-30" class="text-2xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded">
+            <div class="bg-white/5 p-4 rounded" title="Pacientes com >30 dias e idade >=60 anos">
                 <div class="text-sm text-gray-400">>30 dias (>=60 anos)</div>
                 <div id="kp-30-60" class="text-2xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded">
+            <div class="bg-white/5 p-4 rounded" title="Pacientes pediátricos (<18 anos) com >30 dias">
                 <div class="text-sm text-gray-400">>30 dias (Pediatria)</div>
                 <div id="kp-30-ped" class="text-2xl font-bold">-</div>
             </div>
@@ -120,10 +120,11 @@
                 </table>
             </div>
             <div class="mt-4 flex justify-between items-center">
-                <div id="pagination-info"></div>
-                <div>
-                    <button onclick="prevPage()" class="px-3 py-1 bg-gray-600 text-white rounded">Anterior</button>
-                    <button onclick="nextPage()" class="px-3 py-1 bg-gray-600 text-white rounded">Próximo</button>
+                <div id="pagination-info" class="text-sm text-gray-400"></div>
+                <div class="flex gap-2">
+                    <button id="btn-prev" onclick="prevPage()" class="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">Anterior</button>
+                    <span id="page-display" class="px-3 py-1 text-sm"></span>
+                    <button id="btn-next" onclick="nextPage()" class="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">Próximo</button>
                 </div>
             </div>
         </div>
@@ -213,34 +214,44 @@ async function loadData(){
         const values = Object.values(json.histogram);
         const ctx = document.getElementById('histogramChart').getContext('2d');
         if(histChart) histChart.destroy();
-        histChart = new Chart(ctx, {type:'bar', data:{labels, datasets:[{label:'Pacientes', data:values, backgroundColor:'rgba(59,130,246,0.8)'}]}});
+        histChart = new Chart(ctx, {type:'bar', data:{labels, datasets:[{label:'Pacientes', data:values, backgroundColor:'rgba(59,130,246,0.8)'}]}, options:{responsive:true, maintainAspectRatio:false}});
 
-        // Clinica chart: fetch clinica breakdown separately
-        const clinRes = await fetch('/api/tempo_permanencia?'+ new URLSearchParams({...currentFilters, per_page:1}).toString());
+        // Clinica chart: count clinic occurrences from full patient list (client-side aggregation for top 10)
+        // Ideally backend should return aggregated clinic stats; here we aggregate from paginated results as MVP
+        const clinRes = await fetch('/api/tempo_permanencia?'+ new URLSearchParams({...currentFilters, per_page:9999}).toString());
         const clinJson = await clinRes.json();
-        // We'll build top 10 from returned patients by counting per clinica client-side
         const counts = {};
-        (clinJson.patients || []).forEach(p => { counts[p.clinica] = (counts[p.clinica] || 0) + 1; });
-        const clinLabels = Object.keys(counts).slice(0,10);
-        const clinVals = clinLabels.map(l => counts[l]);
+        (clinJson.patients || []).forEach(p => { if(p.clinica) counts[p.clinica] = (counts[p.clinica] || 0) + 1; });
+        const sortedClinics = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+        const clinLabels = sortedClinics.map(c=>c[0]);
+        const clinVals = sortedClinics.map(c=>c[1]);
         const cctx = document.getElementById('clinicaChart').getContext('2d');
         if(clinicaChart) clinicaChart.destroy();
-        clinicaChart = new Chart(cctx, {type:'bar', data:{labels:clinLabels, datasets:[{label:'Longa permanência', data:clinVals, backgroundColor:'rgba(16,185,129,0.8)'}]}});
+        clinicaChart = new Chart(cctx, {type:'bar', data:{labels:clinLabels, datasets:[{label:'Longa permanência', data:clinVals, backgroundColor:'rgba(16,185,129,0.8)'}]}, options:{responsive:true, maintainAspectRatio:false, indexAxis:'y'}});
 
         // Table
         const tbody = document.getElementById('patients-body'); tbody.innerHTML='';
         const patients = json.patients || [];
-        for(const p of patients){
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td class="px-2 py-1">${p.nome_masked || maskName(p.nome)}</td>`+
-                           `<td class="px-2 py-1">${p.prontuario || ''}</td>`+
-                           `<td class="px-2 py-1">${p.idade || ''}</td>`+
-                           `<td class="px-2 py-1">${p.clinica || ''}</td>`+
-                           `<td class="px-2 py-1">${p.data_internacao || ''}</td>`+
-                           `<td class="px-2 py-1">${p.dias}</td>`;
-            tbody.appendChild(tr);
+        if(patients.length===0){
+            tbody.innerHTML='<tr><td colspan="6" class="px-2 py-4 text-gray-400 text-center">Nenhum paciente encontrado</td></tr>';
+        } else {
+            for(const p of patients){
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-white/10';
+                tr.innerHTML = `<td class="px-2 py-1">${p.nome_masked || maskName(p.nome)}</td>`+
+                               `<td class="px-2 py-1">${p.prontuario || ''}</td>`+
+                               `<td class="px-2 py-1">${p.idade || ''}</td>`+
+                               `<td class="px-2 py-1">${p.clinica || ''}</td>`+
+                               `<td class="px-2 py-1">${p.data_internacao || ''}</td>`+
+                               `<td class="px-2 py-1 font-semibold">${p.dias}</td>`;
+                tbody.appendChild(tr);
+            }
         }
-        document.getElementById('pagination-info').textContent = `Página ${json.page} — mostrando ${patients.length} de ${json.total_patients}`;
+        const totalPages = Math.ceil(json.total_patients / perPage);
+        document.getElementById('pagination-info').textContent = `Página ${json.page} de ${totalPages} — mostrando ${patients.length} de ${json.total_patients}`;
+        document.getElementById('page-display').textContent = `${json.page} / ${totalPages}`;
+        document.getElementById('btn-prev').disabled = currentPage <= 1;
+        document.getElementById('btn-next').disabled = currentPage >= totalPages;
 
     }catch(e){console.error(e)}
 }

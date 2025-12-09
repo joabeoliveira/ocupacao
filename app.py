@@ -510,10 +510,10 @@ def api_tempo_permanencia():
 
             where_clause = " AND ".join(where_conditions)
 
-            # Consulta por paciente (agrupa por identificador preferencialmente pelo prontuário)
+            # Consulta por paciente (agrupa por identificador: prioriza prontuario se não vazio/nulo)
             sql_patients = text(f"""
                 SELECT
-                    COALESCE(prontuario, cns_paciente, nome_paciente) as patient_id,
+                    COALESCE(NULLIF(TRIM(prontuario), ''), cns_paciente, nome_paciente) as patient_id,
                     MIN(data_internacao) as data_internacao,
                     MAX(nome_paciente) as nome_paciente,
                     MAX(prontuario) as prontuario,
@@ -653,7 +653,7 @@ def api_tempo_permanencia_export():
 
             sql_export = text(f"""
                 SELECT
-                    COALESCE(prontuario, cns_paciente, nome_paciente) as patient_id,
+                    COALESCE(NULLIF(TRIM(prontuario), ''), cns_paciente, nome_paciente) as patient_id,
                     MIN(data_internacao) as data_internacao,
                     MAX(nome_paciente) as nome_paciente,
                     MAX(prontuario) as prontuario,
