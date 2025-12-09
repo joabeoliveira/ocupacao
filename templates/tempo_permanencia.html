@@ -12,23 +12,66 @@
             --bg-primary: #111827;
             --text-primary: #F9FAFB;
             --card-bg: linear-gradient(to bottom right, #1F2937, #111827);
+            --sidebar-bg: #000000;
+            --border-color: rgba(30, 64, 175, 0.5);
         }
         [data-theme="light"] {
             --bg-primary: #F3F4F6;
             --text-primary: #111827;
             --card-bg: linear-gradient(to bottom right, #FFFFFF, #F9FAFB);
+            --sidebar-bg: #1E3A8A;
+            --border-color: rgba(59, 130, 246, 0.3);
         }
         .bg-theme { background: var(--bg-primary); color: var(--text-primary); }
     </style>
 </head>
 <body class="bg-theme font-sans" style="min-height:100vh;">
-    <div class="container mx-auto p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h1 class="text-2xl font-bold">Tempo de Permanência</h1>
-            <div>
-                <button onclick="toggleTheme()" id="theme-toggle" class="px-3 py-2 bg-gray-700 text-white rounded"><i id="theme-icon" class="fas fa-sun"></i></button>
+    <!-- Sidebar -->
+    <div class="flex">
+        <aside class="w-64 h-screen text-white flex flex-col fixed left-0 top-0 z-10 shadow-2xl" style="background-color: var(--sidebar-bg); border-right: 1px solid var(--border-color);">
+            <div class="flex flex-col items-center justify-center h-20 py-2" style="border-bottom: 1px solid #1E40AF;">
+                <div class="flex items-center">
+                    <i class="fas fa-hospital-alt fa-2x mr-2"></i>
+                    <span class="font-semibold text-xl tracking-tight">NIR Dashboard</span>
+                </div>
+                <span class="text-xs text-gray-400 mt-1" id="app-version">v3.2.0</span>
             </div>
-        </div>
+            <nav class="flex-1 py-6">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="/painel" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
+                            <i class="fas fa-bed mr-3"></i>
+                            Ocupação de Leitos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/tempo_permanencia" class="flex items-center px-6 py-3 bg-blue-800 rounded transition">
+                            <i class="fas fa-clock mr-3"></i>
+                            Tempo de Permanência
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
+                            <i class="fas fa-file-upload mr-3"></i>
+                            Importação e Histórico
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 ml-64">
+            <div class="container mx-auto mt-8 px-4 pb-12">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-6 bg-white/5 p-4 rounded border" style="border-color: var(--border-color);">
+                    <h1 class="text-2xl font-bold">Tempo de Permanência</h1>
+                    <div>
+                        <button onclick="toggleTheme()" id="theme-toggle" class="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-600">
+                            <i id="theme-icon" class="fas fa-sun"></i>
+                        </button>
+                    </div>
+                </div>
 
         <!-- Filtros -->
         <div class="bg-white/5 p-4 rounded mb-4 border">
@@ -267,5 +310,8 @@ function exportExcel(){
 
 document.addEventListener('DOMContentLoaded', ()=>{ loadTheme(); loadClinicasFilter(); loadData(); });
 </script>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
