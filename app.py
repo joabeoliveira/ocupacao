@@ -79,74 +79,7 @@ DE_PARA = {
 
 @app.route('/')
 def index():
-    if not db_status:
-        return render_template('index.html', stats=None, chart_data=[], 
-                             error_msg="O servidor não conseguiu conectar no banco na inicialização. Veja os logs.")
-
-    try:
-        insp = inspect(engine)
-        if not insp.has_table('historico_ocupacao_completo'):
-             return render_template('index.html', stats=None, chart_data=[], 
-                                   error_msg=f"Conexão OK. A tabela 'historico_ocupacao_completo' ainda não existe. Faça o primeiro upload.")
-
-        with engine.connect() as conn:
-            # 1. Busca Histórico
-            sql_history = text("""
-                SELECT 
-                    data_referencia,
-                    DATE_FORMAT(data_referencia, '%d/%m/%Y') as data_formatada,
-                    COUNT(*) as total,
-                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados
-                FROM historico_ocupacao_completo
-                GROUP BY data_referencia
-                ORDER BY data_referencia DESC
-            """)
-            history_list = conn.execute(sql_history).mappings().all()
-
-            # 2. Decide qual data mostrar
-            selected_date = request.args.get('data')
-            
-            if not selected_date and history_list:
-                selected_date = history_list[0]['data_referencia']
-            
-            if not selected_date:
-                return render_template('index.html', stats=None, chart_data=[], history=[])
-
-            # 3. Estatísticas
-            sql_stats = text("""
-                SELECT 
-                    COUNT(*) as total,
-                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
-                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' OR status_leito LIKE '%BLOQUEADO%' THEN 1 ELSE 0 END), 0) as impedidos,
-                        COALESCE(SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END), 0) as vagos
-                FROM historico_ocupacao_completo
-                WHERE data_referencia = :data
-            """)
-            stats = conn.execute(sql_stats, {"data": selected_date}).mappings().fetchone()
-            
-            # 4. Gráfico
-            sql_chart = text("""
-                SELECT 
-                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
-                    COUNT(*) as total,
-                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados
-                FROM historico_ocupacao_completo
-                WHERE data_referencia <= :data
-                GROUP BY data_referencia
-                ORDER BY data_referencia DESC
-                LIMIT 7
-            """)
-            chart_data = conn.execute(sql_chart, {"data": selected_date}).mappings().all()
-            chart_data = list(reversed(chart_data))
-
-            import json
-            labels_js = json.dumps([row['dia'] for row in chart_data], ensure_ascii=False)
-            # Converte Decimal para float
-            data_js = json.dumps([float(row['ocupados']) for row in chart_data], ensure_ascii=False)
-            return render_template('index.html', stats=stats, data_ref=selected_date, chart_data=chart_data, history=history_list, labels_js=labels_js, data_js=data_js)
-            
-    except Exception as e:
-        return render_template('index.html', stats=None, chart_data=[], error_msg=f"Erro Geral: {str(e)}")
+    return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -217,47 +150,135 @@ def upload_file():
         flash(f'Erro técnico: {str(e)}', 'error')
         return redirect(url_for('index'))
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80, debug=True)
-
-# NOVA ROTA PARA O PAINEL
-@app.route('/painel')
-def painel():
+# ===== ROTAS API REST =====
+@app.route('/api/stats')
+def api_stats():
+    """Retorna estatísticas gerais em JSON"""
     if not db_status:
-        return render_template('painel.html', stats=None, chart_data=[], error_msg="Não conectado ao banco.")
-    # Recebe filtros do GET
-    periodo_inicio = request.args.get('periodo_inicio')
-    periodo_fim = request.args.get('periodo_fim')
-    mes = request.args.get('mes')
-    dia = request.args.get('dia')
-    clinica = request.args.get('clinica')
-    predio = request.args.get('predio')
-    # Monta cláusulas de filtro
-    filtros = []
-    params = {}
-    if periodo_inicio:
-        filtros.append('data_referencia >= :periodo_inicio')
-        params['periodo_inicio'] = periodo_inicio
-    if periodo_fim:
-        filtros.append('data_referencia <= :periodo_fim')
-        params['periodo_fim'] = periodo_fim
-    if mes:
-        filtros.append('MONTH(data_referencia) = :mes')
-        params['mes'] = mes
-    if dia:
-        filtros.append('DAY(data_referencia) = :dia')
-        params['dia'] = dia
-    if clinica:
-        filtros.append('nome_enfermaria = :clinica')
-        params['clinica'] = clinica
-    if predio:
-        filtros.append('predio = :predio')
-        params['predio'] = predio
-    where_clause = ('WHERE ' + ' AND '.join(filtros)) if filtros else ''
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        selected_date = request.args.get('data')
+        with engine.connect() as conn:
+            # Busca histórico para pegar última data se necessário
+            if not selected_date:
+                sql_last = text("SELECT data_referencia FROM historico_ocupacao_completo ORDER BY data_referencia DESC LIMIT 1")
+                result = conn.execute(sql_last).scalar()
+                if result:
+                    selected_date = result
+                else:
+                    return {"error": "Sem dados disponíveis"}, 404
+            
+            # Estatísticas
+            sql_stats = text("""
+                SELECT 
+                    COUNT(*) as total,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
+                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' OR status_leito LIKE '%BLOQUEADO%' THEN 1 ELSE 0 END), 0) as impedidos,
+                    COALESCE(SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END), 0) as vagos
+                FROM historico_ocupacao_completo
+                WHERE data_referencia = :data
+            """)
+            stats = conn.execute(sql_stats, {"data": selected_date}).mappings().fetchone()
+            
+            return {
+                "total": int(stats['total']),
+                "ocupados": int(stats['ocupados']),
+                "impedidos": int(stats['impedidos']),
+                "vagos": int(stats['vagos']),
+                "data_referencia": str(selected_date)
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+@app.route('/api/chart')
+def api_chart():
+    """Retorna dados para gráfico de evolução em JSON"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        selected_date = request.args.get('data')
+        with engine.connect() as conn:
+            if not selected_date:
+                sql_last = text("SELECT data_referencia FROM historico_ocupacao_completo ORDER BY data_referencia DESC LIMIT 1")
+                result = conn.execute(sql_last).scalar()
+                if result:
+                    selected_date = result
+                else:
+                    return {"error": "Sem dados disponíveis"}, 404
+            
+            sql_chart = text("""
+                SELECT 
+                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    COUNT(*) as total,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados
+                FROM historico_ocupacao_completo
+                WHERE data_referencia <= :data
+                GROUP BY data_referencia
+                ORDER BY data_referencia DESC
+                LIMIT 7
+            """)
+            chart_data = conn.execute(sql_chart, {"data": selected_date}).mappings().all()
+            chart_data = list(reversed(chart_data))
+            
+            return {
+                "labels": [row['dia'] for row in chart_data],
+                "data": [int(row['ocupados']) for row in chart_data]
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+@app.route('/api/history')
+def api_history():
+    """Retorna histórico de importações em JSON"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
     try:
         with engine.connect() as conn:
-            # Indicadores principais com filtros
-            sql_stats = text(f"""
+            sql_history = text("""
+                SELECT 
+                    data_referencia,
+                    DATE_FORMAT(data_referencia, '%d/%m/%Y') as data_formatada,
+                    COUNT(*) as total,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados
+                FROM historico_ocupacao_completo
+                GROUP BY data_referencia
+                ORDER BY data_referencia DESC
+            """)
+            history_list = conn.execute(sql_history).mappings().all()
+            
+            return {
+                "history": [
+                    {
+                        "data_referencia": str(row['data_referencia']),
+                        "data_formatada": row['data_formatada'],
+                        "total": int(row['total']),
+                        "ocupados": int(row['ocupados'])
+                    }
+                    for row in history_list
+                ]
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+@app.route('/api/painel/stats')
+def api_painel_stats():
+    """Retorna estatísticas do painel de ocupação"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        with engine.connect() as conn:
+            # Busca a última data disponível
+            sql_last_date = text("SELECT MAX(data_referencia) as ultima_data FROM historico_ocupacao_completo")
+            ultima_data = conn.execute(sql_last_date).scalar()
+            
+            if not ultima_data:
+                return {"error": "Sem dados disponíveis"}, 404
+            
+            sql_stats = text("""
                 SELECT 
                     COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
                     COALESCE(SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END), 0) as livres,
@@ -266,50 +287,75 @@ def painel():
                     COALESCE(SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END), 0) as reservados,
                     COUNT(*) as total
                 FROM historico_ocupacao_completo
-                {where_clause}
+                WHERE data_referencia = :ultima_data
             """)
-            stats = conn.execute(sql_stats, params).mappings().fetchone()
+            stats = conn.execute(sql_stats, {"ultima_data": ultima_data}).mappings().fetchone()
+            
+            return {
+                "ocupados": int(stats['ocupados']),
+                "livres": int(stats['livres']),
+                "cedidos": int(stats['cedidos']),
+                "impedidos": int(stats['impedidos']),
+                "reservados": int(stats['reservados']),
+                "total": int(stats['total'])
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
 
-            # Evolução mensal das taxas de ocupação geral
-            sql_evolucao = text(f"""
+@app.route('/api/painel/evolucao')
+def api_painel_evolucao():
+    """Retorna evolução mensal para gráfico"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        with engine.connect() as conn:
+            sql_evolucao = text("""
                 SELECT DATE_FORMAT(data_referencia, '%Y-%m') as mes,
                     SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
                     COUNT(*) as total
                 FROM historico_ocupacao_completo
-                {where_clause}
                 GROUP BY mes
                 ORDER BY mes
             """)
-            evolucao = conn.execute(sql_evolucao, params).mappings().all()
+            evolucao = conn.execute(sql_evolucao).mappings().all()
+            
+            return {
+                "labels": [row['mes'] for row in evolucao],
+                "data": [round((int(row['ocupados']) / int(row['total'])) * 100, 1) for row in evolucao]
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
 
-            # Taxa de ocupação por clínica
-            sql_clinica = text(f"""
+@app.route('/api/painel/clinicas')
+def api_painel_clinicas():
+    """Retorna dados por clínica"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        with engine.connect() as conn:
+            sql_clinica = text("""
                 SELECT nome_enfermaria,
                     SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
                     COUNT(*) as total
                 FROM historico_ocupacao_completo
-                {where_clause}
                 GROUP BY nome_enfermaria
                 ORDER BY nome_enfermaria
             """)
-            clinicas = conn.execute(sql_clinica, params).mappings().all()
-
-            # Taxa de ocupação por prédio
-            sql_predio = text(f"""
-                SELECT predio,
-                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
-                    COUNT(*) as total
-                FROM historico_ocupacao_completo
-                {where_clause}
-                GROUP BY predio
-                ORDER BY predio
-            """)
-            predios = conn.execute(sql_predio, params).mappings().all()
-
-            import json
-            # Prepara arrays para gráfico de evolução mensal
-            evolucao_labels = json.dumps([row['mes'] for row in evolucao], ensure_ascii=False)
-            evolucao_data = json.dumps([float(row['ocupados']) for row in evolucao], ensure_ascii=False)
-            return render_template('painel.html', stats=stats, filtros=request.args, evolucao=evolucao, clinicas=clinicas, predios=predios, evolucao_labels=evolucao_labels, evolucao_data=evolucao_data)
+            clinicas = conn.execute(sql_clinica).mappings().all()
+            
+            return {
+                "labels": [row['nome_enfermaria'] for row in clinicas],
+                "data": [round((int(row['ocupados']) / int(row['total'])) * 100, 1) for row in clinicas]
+            }
     except Exception as e:
-        return render_template('painel.html', stats=None, chart_data=[], error_msg=f"Erro: {str(e)}")
+        return {"error": str(e)}, 500
+
+# ROTA PARA O PAINEL (renderiza template estático)
+@app.route('/painel')
+def painel():
+    return render_template('painel.html')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80, debug=True)

@@ -3,277 +3,596 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Ocupação de Leitos</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Ocupação de Leitos - NIR Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghcgreen: '#599E33',
+              ghcturquoise: '#008B8B',
+              ghclight: '#DFE7CF',
+              ghcwhite: '#FFFFFF',
+            }
+          }
+        }
+      }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #f8f9fa;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .sidebar {
-            min-width: 220px;
-            max-width: 220px;
-            background: #343a40;
-            color: #fff;
-            height: 100vh;
-            position: fixed;
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
         }
-        .sidebar .nav-link {
-            color: #fff;
+        .card-hover {
+            transition: all 0.3s ease;
         }
-        .main-content {
-            margin-left: 220px;
-            padding: 2rem;
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
         }
-        .card-indicador {
-            min-width: 180px;
-            margin-bottom: 1rem;
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
         }
-        .chart-container {
-            background: #fff;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 2rem;
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.5s ease;
         }
     </style>
 </head>
-<body>
-    <div class="sidebar d-flex flex-column p-3">
-        <h4 class="mb-4">Filtros</h4>
-        <form>
-            <div class="mb-3">
-                <label for="periodo" class="form-label">Período</label>
-                <input type="date" class="form-control" id="periodo-inicio">
-                <input type="date" class="form-control mt-1" id="periodo-fim">
+<body class="bg-gray-900 font-sans">
+    <!-- Sidebar -->
+    <div class="flex">
+        <aside class="w-64 h-screen bg-black text-white flex flex-col fixed left-0 top-0 z-10 shadow-2xl border-r border-gray-800">
+            <div class="flex items-center justify-center h-20 border-b border-blue-800">
+                <i class="fas fa-hospital-alt fa-2x mr-2"></i>
+                <span class="font-semibold text-xl tracking-tight">NIR Dashboard</span>
             </div>
-            <div class="mb-3">
-                <label for="mes" class="form-label">Mês</label>
-                <select class="form-select" id="mes">
-                    <option value="">Todos</option>
-                    <!-- opções de meses -->
-                </select>
+            <nav class="flex-1 py-6">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="/painel" class="flex items-center px-6 py-3 bg-blue-800 rounded transition">
+                            <i class="fas fa-bed mr-3"></i>
+                            Ocupação de Leitos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
+                            <i class="fas fa-file-upload mr-3"></i>
+                            Importação e Histórico
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 ml-64">
+            <div class="container mx-auto mt-8 px-4 pb-12">
+                <!-- Header -->
+                <nav class="bg-gradient-to-r from-gray-800 to-gray-900 p-4 shadow-2xl rounded-lg mb-6 border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <h1 class="text-ghcwhite font-semibold text-2xl">
+                            <i class="fas fa-chart-bar mr-2"></i>
+                            Painel de Ocupação de Leitos
+                        </h1>
+                        <div class="flex gap-2">
+                            <button onclick="toggleFilters()" 
+                                class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded transition">
+                                <i class="fas fa-filter mr-2"></i>
+                                Filtros
+                            </button>
+                            <button onclick="refreshData()" 
+                                class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded transition">
+                                <i class="fas fa-sync-alt mr-2"></i>
+                                Atualizar
+                            </button>
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- Filters Panel -->
+                <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 hidden animate-fade-in border border-gray-700">
+                    <h3 class="text-lg font-bold text-white mb-4">
+                        <i class="fas fa-filter mr-2 text-ghcturquoise"></i>
+                        Filtros Avançados
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-calendar-alt mr-1"></i>
+                                Período Inicial
+                            </label>
+                            <input type="date" id="filter-periodo-inicio"
+                                class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-calendar-check mr-1"></i>
+                                Período Final
+                            </label>
+                            <input type="date" id="filter-periodo-fim"
+                                class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-calendar mr-1"></i>
+                                Mês
+                            </label>
+                            <select id="filter-mes"
+                                class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">Todos</option>
+                                <option value="1">Janeiro</option>
+                                <option value="2">Fevereiro</option>
+                                <option value="3">Março</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Maio</option>
+                                <option value="6">Junho</option>
+                                <option value="7">Julho</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Setembro</option>
+                                <option value="10">Outubro</option>
+                                <option value="11">Novembro</option>
+                                <option value="12">Dezembro</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-hospital-user mr-1"></i>
+                                Clínica
+                            </label>
+                            <select id="filter-clinica"
+                                class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                        <button onclick="applyFilters()" 
+                            class="bg-ghcturquoise hover:bg-ghcgreen text-white px-6 py-2 rounded-lg transition">
+                            <i class="fas fa-check mr-2"></i>
+                            Aplicar Filtros
+                        </button>
+                        <button onclick="clearFilters()" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition">
+                            <i class="fas fa-times mr-2"></i>
+                            Limpar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading Skeleton -->
+                <div id="loading-skeleton" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="skeleton h-28 rounded-lg"></div>
+                        <div class="skeleton h-28 rounded-lg"></div>
+                        <div class="skeleton h-28 rounded-lg"></div>
+                        <div class="skeleton h-28 rounded-lg"></div>
+                        <div class="skeleton h-28 rounded-lg"></div>
+                    </div>
+                    <div class="skeleton h-96 rounded-lg"></div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div id="stats-section" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6 animate-fade-in">
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-blue-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-500 text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-user-injured mr-1"></i>
+                                        Ocupados
+                                    </div>
+                                    <div class="text-4xl font-bold text-blue-400" id="stat-ocupados">0</div>
+                                </div>
+                                <div class="text-blue-500 text-3xl">
+                                    <i class="fas fa-procedures"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-green-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-bed mr-1"></i>
+                                        Livres
+                                    </div>
+                                    <div class="text-4xl font-bold text-green-400" id="stat-livres">0</div>
+                                </div>
+                                <div class="text-green-500 text-3xl">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-yellow-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-exchange-alt mr-1"></i>
+                                        Cedidos
+                                    </div>
+                                    <div class="text-4xl font-bold text-yellow-400" id="stat-cedidos">0</div>
+                                </div>
+                                <div class="text-yellow-500 text-3xl">
+                                    <i class="fas fa-hands-helping"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-red-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-tools mr-1"></i>
+                                        Impedidos
+                                    </div>
+                                    <div class="text-4xl font-bold text-red-400" id="stat-impedidos">0</div>
+                                </div>
+                                <div class="text-red-500 text-3xl">
+                                    <i class="fas fa-ban"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-purple-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-clock mr-1"></i>
+                                        Reservados
+                                    </div>
+                                    <div class="text-4xl font-bold text-purple-400" id="stat-reservados">0</div>
+                                </div>
+                                <div class="text-purple-500 text-3xl">
+                                    <i class="fas fa-bookmark"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Secondary Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 animate-fade-in">
+                        <div class="bg-gradient-to-br from-ghcturquoise to-blue-600 rounded-lg p-6 shadow-lg text-white card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-white text-sm font-semibold uppercase mb-2">Taxa de Ocupação Geral</div>
+                                    <div class="text-3xl font-bold" id="taxa-geral">0%</div>
+                                </div>
+                                <svg class="progress-ring" width="60" height="60">
+                                    <circle class="text-white opacity-30" stroke="currentColor" stroke-width="4" 
+                                        fill="transparent" r="26" cx="30" cy="30"/>
+                                    <circle id="progress-ring-geral" class="progress-ring-circle text-white" stroke="currentColor" 
+                                        stroke-width="4" fill="transparent" r="26" cx="30" cy="30"
+                                        stroke-dasharray="163.36" stroke-dashoffset="163.36"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-lg p-6 shadow-lg text-white card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-white text-sm font-semibold uppercase mb-2">% Leitos Impedidos</div>
+                                    <div class="text-3xl font-bold" id="taxa-impedidos">0%</div>
+                                </div>
+                                <svg class="progress-ring" width="60" height="60">
+                                    <circle class="text-white opacity-30" stroke="currentColor" stroke-width="4" 
+                                        fill="transparent" r="26" cx="30" cy="30"/>
+                                    <circle id="progress-ring-impedidos" class="progress-ring-circle text-white" stroke="currentColor" 
+                                        stroke-width="4" fill="transparent" r="26" cx="30" cy="30"
+                                        stroke-dasharray="163.36" stroke-dashoffset="163.36"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-gray-600 to-gray-800 rounded-lg p-6 shadow-lg text-white card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-white text-sm font-semibold uppercase mb-2">Total de Leitos</div>
+                                    <div class="text-3xl font-bold" id="stat-total">0</div>
+                                </div>
+                                <div class="text-white text-4xl">
+                                    <i class="fas fa-hospital"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-chart-line mr-2 text-blue-400"></i>
+                                Evolução Mensal da Ocupação
+                            </h3>
+                            <div style="height: 300px">
+                                <canvas id="grafico-evolucao"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-chart-bar mr-2 text-green-400"></i>
+                                Taxa de Ocupação por Clínica
+                            </h3>
+                            <div style="height: 300px">
+                                <canvas id="grafico-clinica"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="mb-3">
-                <label for="dia" class="form-label">Dia</label>
-                <input type="number" class="form-control" id="dia" min="1" max="31">
-            </div>
-            <div class="mb-3">
-                <label for="clinica" class="form-label">Clínica</label>
-                <select class="form-select" id="clinica">
-                    <option value="">Todas</option>
-                    <!-- opções de clínicas -->
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="predio" class="form-label">Prédio</label>
-                <select class="form-select" id="predio">
-                    <option value="">Todos</option>
-                    <option value="1">Prédio 1</option>
-                    <option value="2">Prédio 2</option>
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Aplicar Filtros</button>
-        </form>
+        </div>
     </div>
-    <div class="main-content">
-        <h2 class="mb-4">Painel de Ocupação de Leitos</h2>
-        <div class="row mb-4">
-            <div class="col card-indicador">
-                <div class="card text-bg-primary">
-                    <div class="card-body">
-                        <h5 class="card-title">Ocupados</h5>
-                            <p class="card-text" id="card-ocupados">{{ stats.ocupados if stats else '--' }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col card-indicador">
-                <div class="card text-bg-success">
-                    <div class="card-body">
-                        <h5 class="card-title">Livres</h5>
-                            <p class="card-text" id="card-livres">{{ stats.livres if stats else '--' }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col card-indicador">
-                <div class="card text-bg-warning">
-                    <div class="card-body">
-                        <h5 class="card-title">Cedidos</h5>
-                            <p class="card-text" id="card-cedidos">{{ stats.cedidos if stats else '--' }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col card-indicador">
-                <div class="card text-bg-danger">
-                    <div class="card-body">
-                        <h5 class="card-title">Impedidos</h5>
-                            <p class="card-text" id="card-impedidos">{{ stats.impedidos if stats else '--' }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col card-indicador">
-                <div class="card text-bg-secondary">
-                    <div class="card-body">
-                        <h5 class="card-title">Reservados</h5>
-                            <p class="card-text" id="card-reservados">{{ stats.reservados if stats else '--' }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mb-4">
-            <div class="col card-indicador">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Taxa Ocupação Geral</h5>
-                            <p class="card-text" id="card-taxa-geral">{% if stats %}{{ ((stats.ocupados / stats.total) * 100) | round(1) }}%{% else %}--{% endif %}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col card-indicador">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Taxa Ocupação Geral Ajustada</h5>
-                            <p class="card-text" id="card-taxa-geral-ajustada">-- %</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col card-indicador">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Taxa Ocupação Operacional</h5>
-                            <p class="card-text" id="card-taxa-operacional">-- %</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col card-indicador">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Taxa Ocupação Operacional Ajustada</h5>
-                            <p class="card-text" id="card-taxa-operacional-ajustada">-- %</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col card-indicador">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">% Leitos Impedidos</h5>
-                            <p class="card-text" id="card-percentual-impedidos">{% if stats %}{{ ((stats.impedidos / stats.total) * 100) | round(1) }}%{% else %}--{% endif %}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12 chart-container mb-4">
-                <h5>Evolução Mensal das Taxas de Ocupação Geral</h5>
-                <canvas id="grafico-evolucao"></canvas>
-            </div>
-            <div class="col-md-6 chart-container mb-4">
-                <h5>Taxa de Ocupação por Clínica</h5>
-                <canvas id="grafico-clinica"></canvas>
-            </div>
-            <div class="col-md-6 chart-container mb-4">
-                <h5>Taxa de Ocupação por Prédio</h5>
-                <canvas id="grafico-predio"></canvas>
-            </div>
-        </div>
-    </div>
+
     <script>
-        // Gráfico de Evolução Mensal das Taxas de Ocupação Geral
-        const evolucaoLabels = {{ evolucao_labels | safe }};
-        const evolucaoData = {{ evolucao_data | safe }};
-        const ctxEvolucao = document.getElementById('grafico-evolucao').getContext('2d');
-        new Chart(ctxEvolucao, {
-            type: 'line',
-            data: {
-                labels: evolucaoLabels,
-                datasets: [{
-                    label: 'Ocupados',
-                    data: evolucaoData,
-                    borderColor: '#008B8B',
-                    backgroundColor: 'rgba(0,139,139,0.1)',
-                    borderWidth: 2,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#008B8B',
-                    tension: 0.3,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: '#f3f4f6' }
-                    },
-                    x: {
-                        grid: { display: false }
-                    }
-                },
-                plugins: {
-                    legend: { display: false }
+        let evolucaoChart = null;
+        let clinicaChart = null;
+        let currentFilters = {};
+
+        // Toggle filters panel
+        function toggleFilters() {
+            const panel = document.getElementById('filters-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        // Apply filters
+        function applyFilters() {
+            currentFilters = {
+                periodo_inicio: document.getElementById('filter-periodo-inicio').value,
+                periodo_fim: document.getElementById('filter-periodo-fim').value,
+                mes: document.getElementById('filter-mes').value,
+                clinica: document.getElementById('filter-clinica').value
+            };
+            
+            // Remove empty filters
+            Object.keys(currentFilters).forEach(key => {
+                if (!currentFilters[key]) delete currentFilters[key];
+            });
+            
+            refreshData();
+            toggleFilters();
+        }
+
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('filter-periodo-inicio').value = '';
+            document.getElementById('filter-periodo-fim').value = '';
+            document.getElementById('filter-mes').value = '';
+            document.getElementById('filter-clinica').value = '';
+            currentFilters = {};
+            refreshData();
+        }
+
+        // Load clinicas for filter
+        async function loadClinicasFilter() {
+            try {
+                const response = await fetch('/api/painel/clinicas');
+                const data = await response.json();
+                
+                if (data.error) return;
+                
+                const select = document.getElementById('filter-clinica');
+                data.labels.forEach(clinica => {
+                    const option = document.createElement('option');
+                    option.value = clinica;
+                    option.textContent = clinica;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar clínicas para filtro:', error);
+            }
+        }
+
+        // Update progress ring
+        function updateProgressRing(elementId, percent) {
+            const circle = document.getElementById(elementId);
+            const circumference = 163.36;
+            const offset = circumference - (percent / 100 * circumference);
+            circle.style.strokeDashoffset = offset;
+        }
+
+        // Load stats
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/painel/stats');
+                const stats = await response.json();
+                
+                if (stats.error) {
+                    console.error('Erro ao carregar stats:', stats.error);
+                    return;
                 }
+                
+                document.getElementById('stat-ocupados').textContent = stats.ocupados;
+                document.getElementById('stat-livres').textContent = stats.livres;
+                document.getElementById('stat-cedidos').textContent = stats.cedidos;
+                document.getElementById('stat-impedidos').textContent = stats.impedidos;
+                document.getElementById('stat-reservados').textContent = stats.reservados;
+                document.getElementById('stat-total').textContent = stats.total;
+                
+                const taxaGeral = ((stats.ocupados / stats.total) * 100).toFixed(1);
+                const taxaImpedidos = ((stats.impedidos / stats.total) * 100).toFixed(1);
+                
+                document.getElementById('taxa-geral').textContent = taxaGeral + '%';
+                document.getElementById('taxa-impedidos').textContent = taxaImpedidos + '%';
+                
+                updateProgressRing('progress-ring-geral', taxaGeral);
+                updateProgressRing('progress-ring-impedidos', taxaImpedidos);
+                
+                document.getElementById('loading-skeleton').classList.add('hidden');
+                document.getElementById('stats-section').classList.remove('hidden');
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
             }
-        });
-        const evolucaoLabels = [{% for item in evolucao %}'{{ item.mes }}'{% if not loop.last %}, {% endif %}{% endfor %}];
-        const evolucaoData = [{% for item in evolucao %}{{ ((item.ocupados / item.total) * 100) | round(1) }}{% if not loop.last %}, {% endif %}{% endfor %}];
-        const ctxEvolucao = document.getElementById('grafico-evolucao').getContext('2d');
-        new Chart(ctxEvolucao, {
-            type: 'line',
-            data: {
-                labels: evolucaoLabels,
-                datasets: [{
-                    label: 'Taxa de Ocupação (%)',
-                    data: evolucaoData,
-                    borderColor: 'rgba(13, 110, 253, 1)',
-                    backgroundColor: 'rgba(13, 110, 253, 0.2)',
-                    fill: true,
-                    tension: 0.2
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } }
-            }
-        });
+        }
 
-        // Gráfico de Barras: Taxa de Ocupação por Clínica
-        const clinicaLabels = [{% for item in clinicas %}'{{ item.nome_enfermaria }}'{% if not loop.last %}, {% endif %}{% endfor %}];
-        const clinicaData = [{% for item in clinicas %}{{ ((item.ocupados / item.total) * 100) | round(1) }}{% if not loop.last %}, {% endif %}{% endfor %}];
-        const ctxClinica = document.getElementById('grafico-clinica').getContext('2d');
-        new Chart(ctxClinica, {
-            type: 'bar',
-            data: {
-                labels: clinicaLabels,
-                datasets: [{
-                    label: 'Taxa de Ocupação (%)',
-                    data: clinicaData,
-                    backgroundColor: 'rgba(25, 135, 84, 0.7)'
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } }
+        // Load evolução chart
+        async function loadEvolucaoChart() {
+            try {
+                const response = await fetch('/api/painel/evolucao');
+                const data = await response.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('grafico-evolucao').getContext('2d');
+                
+                if (evolucaoChart) {
+                    evolucaoChart.destroy();
+                }
+                
+                evolucaoChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Taxa de Ocupação (%)',
+                            data: data.data,
+                            borderColor: '#60A5FA',
+                            backgroundColor: 'rgba(96,165,250,0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    color: '#9CA3AF',
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                },
+                                grid: { color: '#374151' }
+                            },
+                            x: {
+                                ticks: { color: '#9CA3AF' },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { color: '#E5E7EB' }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.parsed.y + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar gráfico de evolução:', error);
             }
-        });
+        }
 
-        // Gráfico de Barras: Taxa de Ocupação por Prédio
-        const predioLabels = [{% for item in predios %}'{{ item.predio }}'{% if not loop.last %}, {% endif %}{% endfor %}];
-        const predioData = [{% for item in predios %}{{ ((item.ocupados / item.total) * 100) | round(1) }}{% if not loop.last %}, {% endif %}{% endfor %}];
-        const ctxPredio = document.getElementById('grafico-predio').getContext('2d');
-        new Chart(ctxPredio, {
-            type: 'bar',
-            data: {
-                labels: predioLabels,
-                datasets: [{
-                    label: 'Taxa de Ocupação (%)',
-                    data: predioData,
-                    backgroundColor: 'rgba(220, 53, 69, 0.7)'
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } }
+        // Load clinica chart
+        async function loadClinicaChart() {
+            try {
+                const response = await fetch('/api/painel/clinicas');
+                const data = await response.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('grafico-clinica').getContext('2d');
+                
+                if (clinicaChart) {
+                    clinicaChart.destroy();
+                }
+                
+                clinicaChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Taxa de Ocupação (%)',
+                            data: data.data,
+                            backgroundColor: '#34D399',
+                            borderColor: '#10B981',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    color: '#9CA3AF',
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                },
+                                grid: { color: '#374151' }
+                            },
+                            y: {
+                                ticks: { color: '#9CA3AF' },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Ocupação: ' + context.parsed.x + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar gráfico de clínicas:', error);
             }
+        }
+
+        // Refresh all data
+        function refreshData() {
+            document.getElementById('stats-section').classList.add('hidden');
+            document.getElementById('loading-skeleton').classList.remove('hidden');
+            
+            loadStats();
+            loadEvolucaoChart();
+            loadClinicaChart();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadEvolucaoChart();
+            loadClinicaChart();
+            loadClinicasFilter();
         });
     </script>
 </body>
