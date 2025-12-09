@@ -6,6 +6,20 @@
     <title>Painel NIR - HFB</title>
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            ghcgreen: '#599E33',
+                            ghcturquoise: '#008B8B',
+                            ghclight: '#DFE7CF',
+                            ghcwhite: '#FFFFFF',
+                        }
+                    }
+                }
+            }
+        </script>
     <!-- Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Ícones -->
@@ -13,21 +27,56 @@
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
 
-    <!-- Navegação -->
-    <nav class="bg-blue-800 p-4 shadow-lg">
-        <div class="container mx-auto flex items-center justify-between flex-wrap">
-            <div class="flex items-center flex-shrink-0 text-white mr-6">
-                <i class="fas fa-hospital-alt fa-lg mr-2"></i>
-                <span class="font-semibold text-xl tracking-tight">NIR Dashboard - HFB</span>
-            </div>
-            <!-- Data atual sendo visualizada -->
-            {% if data_ref %}
-            <div class="text-white text-sm bg-blue-700 px-3 py-1 rounded">
-                Visualizando: <strong>{{ data_ref }}</strong>
-            </div>
-            {% endif %}
-        </div>
-    </nav>
+        <!-- Sidebar de Navegação -->
+        <div class="flex">
+            <aside class="w-64 h-screen bg-blue-900 text-white flex flex-col fixed left-0 top-0 z-10 shadow-lg">
+                <div class="flex items-center justify-center h-20 border-b border-blue-800">
+                    <i class="fas fa-hospital-alt fa-2x mr-2"></i>
+                    <span class="font-semibold text-xl tracking-tight">NIR Dashboard</span>
+                </div>
+                <nav class="flex-1 py-6">
+                    <ul class="space-y-2">
+                        <li>
+                            <a href="/painel" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
+                                <i class="fas fa-bed mr-3"></i>
+                                Ocupação de Leitos
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
+                                <i class="fas fa-file-upload mr-3"></i>
+                                Importação e Histórico
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+            <div class="flex-1 ml-64">
+                    <div class="container mx-auto mt-8 px-4 pb-12 bg-ghclight min-h-screen">
+                <!-- Cabeçalho -->
+                <nav class="bg-blue-800 p-4 shadow-lg">
+                    <div class="container mx-auto flex items-center justify-between flex-wrap">
+                        <div class="flex items-center flex-shrink-0 text-white mr-6">
+                            <span class="font-semibold text-xl tracking-tight">HFB</span>
+                        </div>
+                        {% if data_ref %}
+                        <div class="text-white text-sm bg-blue-700 px-3 py-1 rounded">
+                            Visualizando: <strong>
+                                {% if history %}
+                                    {% for row in history %}
+                                        {% if row.data_referencia == data_ref %}
+                                            {{ row.data_formatada }}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    {{ data_ref }}
+                                {% endif %}
+                            </strong>
+                        </div>
+                        {% endif %}
+                    </div>
+                </nav>
+                    <nav class="bg-ghcturquoise p-4 shadow-lg">
 
     <div class="container mx-auto mt-8 px-4 pb-12">
         
@@ -170,7 +219,17 @@
 
                 <!-- Gráfico de Evolução -->
                 <div class="bg-white p-6 rounded shadow">
-                    <h3 class="font-bold text-gray-700 mb-4">Evolução da Ocupação (Até {{ data_ref }})</h3>
+                                        <h3 class="font-bold text-gray-700 mb-4">Evolução da Ocupação (Até 
+                                            {% if history %}
+                                                {% for row in history %}
+                                                    {% if row.data_referencia == data_ref %}
+                                                        {{ row.data_formatada }}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ data_ref }}
+                                            {% endif %}
+                                        )</h3>
                     <div class="relative" style="height: 300px">
                         <canvas id="occupancyChart"></canvas>
                     </div>
@@ -192,10 +251,10 @@
     <script>
         const ctx = document.getElementById('occupancyChart').getContext('2d');
         const data = {
-            labels: [{% for row in chart_data %}'{{ row.dia }}',{% endfor %}],
+            labels: {{ labels_js }},
             datasets: [{
                 label: 'Pacientes Internados',
-                data: [{% for row in chart_data %}{{ row.ocupados }},{% endfor %}],
+                data: {{ data_js }},
                 borderColor: 'rgb(37, 99, 235)',
                 backgroundColor: 'rgba(37, 99, 235, 0.1)',
                 borderWidth: 2,

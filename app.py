@@ -139,7 +139,10 @@ def index():
             chart_data = conn.execute(sql_chart, {"data": selected_date}).mappings().all()
             chart_data = list(reversed(chart_data))
 
-            return render_template('index.html', stats=stats, data_ref=selected_date, chart_data=chart_data, history=history_list)
+            import json
+            labels_js = json.dumps([row['dia'] for row in chart_data], ensure_ascii=False)
+            data_js = json.dumps([row['ocupados'] for row in chart_data], ensure_ascii=False)
+            return render_template('index.html', stats=stats, data_ref=selected_date, chart_data=chart_data, history=history_list, labels_js=labels_js, data_js=data_js)
             
     except Exception as e:
         return render_template('index.html', stats=None, chart_data=[], error_msg=f"Erro Geral: {str(e)}")
