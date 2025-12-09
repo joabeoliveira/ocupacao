@@ -271,20 +271,57 @@ def api_history():
 
 @app.route('/api/painel/stats')
 def api_painel_stats():
-    """Retorna estatísticas do painel de ocupação"""
+    """Retorna estatísticas do painel de ocupação com suporte a filtros"""
     if not db_status:
         return {"error": "Banco não conectado"}, 500
     
     try:
+        # Captura filtros da query string
+        predio = request.args.get('predio')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        clinica = request.args.get('clinica')
+        
         with engine.connect() as conn:
-            # Busca a última data disponível
-            sql_last_date = text("SELECT MAX(data_referencia) as ultima_data FROM historico_ocupacao_completo")
-            ultima_data = conn.execute(sql_last_date).scalar()
+            # Monta condições WHERE dinamicamente
+            where_conditions = []
+            params = {}
             
-            if not ultima_data:
-                return {"error": "Sem dados disponíveis"}, 404
+            # Filtro de prédio (baseado no num_enf)
+            if predio == '1':
+                where_conditions.append("num_enf BETWEEN 111 AND 199")
+            elif predio == '2':
+                where_conditions.append("num_enf BETWEEN 200 AND 299")
             
-            sql_stats = text("""
+            # Filtro de período
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            elif not periodo_inicio and not periodo_fim and not mes:
+                # Se não tem filtros de data, usa última data
+                sql_last_date = text("SELECT MAX(data_referencia) as ultima_data FROM historico_ocupacao_completo")
+                ultima_data = conn.execute(sql_last_date).scalar()
+                if not ultima_data:
+                    return {"error": "Sem dados disponíveis"}, 404
+                where_conditions.append("data_referencia = :ultima_data")
+                params['ultima_data'] = ultima_data
+            
+            # Filtro de mês
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+            
+            # Filtro de clínica
+            if clinica:
+                where_conditions.append("nome_enfermaria = :clinica")
+                params['clinica'] = clinica
+            
+            # Monta SQL com WHERE dinâmico
+            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+            
+            sql_stats = text(f"""
                 SELECT 
                     COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
                     COALESCE(SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END), 0) as livres,
@@ -293,9 +330,9 @@ def api_painel_stats():
                     COALESCE(SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END), 0) as reservados,
                     COUNT(*) as total
                 FROM historico_ocupacao_completo
-                WHERE data_referencia = :ultima_data
+                WHERE {where_clause}
             """)
-            stats = conn.execute(sql_stats, {"ultima_data": ultima_data}).mappings().fetchone()
+            stats = conn.execute(sql_stats, params).mappings().fetchone()
             
             return {
                 "ocupados": int(stats['ocupados']),
@@ -310,21 +347,54 @@ def api_painel_stats():
 
 @app.route('/api/painel/evolucao')
 def api_painel_evolucao():
-    """Retorna evolução mensal para gráfico"""
+    """Retorna evolução mensal para gráfico com suporte a filtros"""
     if not db_status:
         return {"error": "Banco não conectado"}, 500
     
     try:
+        # Captura filtros
+        predio = request.args.get('predio')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        clinica = request.args.get('clinica')
+        
         with engine.connect() as conn:
-            sql_evolucao = text("""
+            # Monta condições WHERE
+            where_conditions = []
+            params = {}
+            
+            # Filtro de prédio
+            if predio == '1':
+                where_conditions.append("num_enf BETWEEN 111 AND 199")
+            elif predio == '2':
+                where_conditions.append("num_enf BETWEEN 200 AND 299")
+            
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+            
+            if clinica:
+                where_conditions.append("nome_enfermaria = :clinica")
+                params['clinica'] = clinica
+            
+            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+            
+            sql_evolucao = text(f"""
                 SELECT DATE_FORMAT(data_referencia, '%Y-%m') as mes,
                     SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
                     COUNT(*) as total
                 FROM historico_ocupacao_completo
+                WHERE {where_clause}
                 GROUP BY mes
                 ORDER BY mes
             """)
-            evolucao = conn.execute(sql_evolucao).mappings().all()
+            evolucao = conn.execute(sql_evolucao, params).mappings().all()
             
             return {
                 "labels": [row['mes'] for row in evolucao],
@@ -335,21 +405,57 @@ def api_painel_evolucao():
 
 @app.route('/api/painel/clinicas')
 def api_painel_clinicas():
-    """Retorna dados por clínica"""
+    """Retorna dados por clínica com suporte a filtros"""
     if not db_status:
         return {"error": "Banco não conectado"}, 500
     
     try:
+        # Captura filtros
+        predio = request.args.get('predio')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        clinica = request.args.get('clinica')
+        
         with engine.connect() as conn:
-            sql_clinica = text("""
+            # Monta condições WHERE
+            where_conditions = []
+            params = {}
+            
+            # Filtro de prédio
+            if predio == '1':
+                where_conditions.append("num_enf BETWEEN 111 AND 199")
+            elif predio == '2':
+                where_conditions.append("num_enf BETWEEN 200 AND 299")
+            
+            where_conditions = []
+            params = {}
+            
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+            
+            if clinica:
+                where_conditions.append("nome_enfermaria = :clinica")
+                params['clinica'] = clinica
+            
+            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+            
+            sql_clinica = text(f"""
                 SELECT nome_enfermaria,
                     SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
                     COUNT(*) as total
                 FROM historico_ocupacao_completo
+                WHERE {where_clause}
                 GROUP BY nome_enfermaria
                 ORDER BY nome_enfermaria
             """)
-            clinicas = conn.execute(sql_clinica).mappings().all()
+            clinicas = conn.execute(sql_clinica, params).mappings().all()
             
             return {
                 "labels": [row['nome_enfermaria'] for row in clinicas],
