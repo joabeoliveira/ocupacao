@@ -3,13 +3,44 @@ Sistema de Ocupação de Leitos - NIR Dashboard
 Controle de Versão
 """
 
-VERSION = "3.1.0"
-VERSION_NAME = "Filters & Themes Edition"
+VERSION = "3.2.0"
+VERSION_NAME = "Tempo de Permanência Edition"
 RELEASE_DATE = "2025-12-09"
 
 # Histórico de Versões
 CHANGELOG = """
 # Changelog
+
+## [3.2.0] - 2025-12-09 - Tempo de Permanência Edition
+### 🆕 Nova Funcionalidade
+- Painel "Tempo de Permanência" com métricas de longa permanência
+- Endpoint `/api/tempo_permanencia` (JSON com métricas + lista paginada)
+- Endpoint `/api/tempo_permanencia/export` (Excel com nomes completos)
+- Página `/tempo_permanencia` com filtros, KPIs, gráficos e tabela
+
+### 📊 Métricas Disponíveis
+- Total de pacientes internados
+- Permanência média e mediana (calculada no backend)
+- Contadores: >30 dias, >30d + >=60 anos, >30d pediatria (<18 anos)
+- Histograma de distribuição (0-7, 8-14, 15-30, 31-60, 61-90, >90 dias)
+- Top 10 clínicas por longa permanência
+
+### 🔒 Segurança & Privacidade
+- Nomes mascarados no frontend (ex: "João S.")
+- Exportação Excel com nomes completos (apenas para gestão)
+- Identificação preferencial por prontuário (NULLIF para valores vazios)
+
+### 🎨 Interface
+- Tooltips explicativos em todos os KPIs
+- Paginação robusta com estado disabled e contador "X / Y"
+- Gráfico horizontal de clínicas (top 10)
+- Cards com hover states e estilos consistentes
+
+### 🔧 Melhorias Técnicas
+- `requirements.txt` criado com openpyxl, Flask, pandas, SQLAlchemy
+- Dockerfile já configurado para instalar dependências automaticamente
+- Agrupamento SQL otimizado com COALESCE + NULLIF
+- Export Excel in-memory usando pandas + openpyxl
 
 ## [3.1.0] - 2025-12-09 - Filters & Themes Edition
 ### ✨ Novidades
