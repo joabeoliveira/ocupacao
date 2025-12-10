@@ -197,6 +197,16 @@
                     </div>
                 </nav>
 
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="container mx-auto px-4">
+                    {% for category, message in messages %}
+                        <div class="mb-4 p-4 rounded {% if category == 'success' %}bg-green-600 text-white{% elif category == 'error' %}bg-red-600 text-white{% else %}bg-gray-600 text-white{% endif %}" style="word-break:break-word;">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
                 <!-- Upload Section -->
                 <div class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 card-hover border border-gray-700">
                     <h2 class="text-xl font-bold text-white mb-4">
