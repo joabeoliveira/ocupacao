@@ -1,0 +1,14 @@
+# Ignore Python virtual env
+.venv/
+
+# Ignore environment files
+.env
+
+# Ignore zip release/artifact files
+*.zip
+
+# Editor and OS files
+__pycache__/
+*.pyc
+Thumbs.db
+desktop.ini
