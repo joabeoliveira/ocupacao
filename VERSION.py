@@ -3,9 +3,9 @@ Sistema de Ocupação de Leitos - NIR Dashboard
 Controle de Versão
 """
 
-VERSION = "3.2.0"
+VERSION = "3.3.6"
 VERSION_NAME = "Tempo de Permanência Edition"
-RELEASE_DATE = "2025-12-09"
+RELEASE_DATE = "2025-12-29"
 
 # Histórico de Versões
 CHANGELOG = """

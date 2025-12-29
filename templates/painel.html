@@ -1,58 +1,64 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html class="dark" lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ocupação de Leitos - NIR Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              ghcgreen: '#599E33',
-              ghcturquoise: '#008B8B',
-              ghclight: '#DFE7CF',
-              ghcwhite: '#FFFFFF',
+        <script>
+            tailwind.config = {
+                darkMode: 'class',
+                theme: {
+                    extend: {
+                        colors: {
+                            "primary": "#0b72d9",
+                            "background-light": "#f7fbff",
+                            "background-dark": "#0f1724",
+                            "surface-light": "#ffffff",
+                            "surface-dark": "#111827",
+                            "text-primary-light": "#0b1724",
+                            "text-primary-dark": "#e6eef8",
+                            "text-secondary-light": "#4b5563",
+                            "text-secondary-dark": "#9fb6d8",
+                        }
+                    }
+                }
             }
-          }
-        }
-      }
-    </script>
+        </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         /* Variáveis de tema */
         :root {
-            --bg-primary: #111827;
-            --bg-secondary: #1F2937;
-            --bg-tertiary: #374151;
-            --text-primary: #F9FAFB;
-            --text-secondary: #D1D5DB;
-            --text-tertiary: #9CA3AF;
-            --border-color: #374151;
-            --card-bg: linear-gradient(to bottom right, #1F2937, #111827);
-            --sidebar-bg: #000000;
-            --chart-blue: rgba(59, 130, 246, 0.8);
-            --chart-green: rgba(34, 197, 94, 0.8);
-            --chart-text: #F9FAFB;
-            --chart-grid: rgba(255, 255, 255, 0.1);
+            --bg-primary: #0f1724;
+            --bg-secondary: #111827;
+            --bg-tertiary: #0b1a2a;
+            --text-primary: #e6eef8;
+            --text-secondary: #9fb6d8;
+            --text-tertiary: #9fb6d8;
+            --border-color: #111827;
+            --card-bg: linear-gradient(to bottom right, #111827, #0f1724);
+            --sidebar-bg: #071025;
+            --chart-blue: rgba(11, 114, 217, 0.85);
+            --chart-green: rgba(22, 163, 74, 0.85);
+            --chart-text: #e6eef8;
+            --chart-grid: rgba(255, 255, 255, 0.06);
         }
         
         [data-theme="light"] {
-            --bg-primary: #F3F4F6;
-            --bg-secondary: #FFFFFF;
-            --bg-tertiary: #E5E7EB;
-            --text-primary: #111827;
-            --text-secondary: #374151;
+            --bg-primary: #f7fbff;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0b1724;
+            --text-secondary: #4b5563;
             --text-tertiary: #6B7280;
             --border-color: #E5E7EB;
-            --card-bg: linear-gradient(to bottom right, #FFFFFF, #F9FAFB);
+            --card-bg: linear-gradient(to bottom right, #ffffff, #f7fbff);
             --sidebar-bg: #1E3A8A;
-            --chart-blue: rgba(37, 99, 235, 0.8);
-            --chart-green: rgba(22, 163, 74, 0.8);
-            --chart-text: #111827;
-            --chart-grid: rgba(0, 0, 0, 0.1);
+            --chart-blue: rgba(11, 114, 217, 0.85);
+            --chart-green: rgba(22, 163, 74, 0.85);
+            --chart-text: #0b1724;
+            --chart-grid: rgba(0, 0, 0, 0.06);
         }
         
         /* Classes utilitárias para tema */
@@ -166,6 +172,12 @@
                         </a>
                     </li>
                     <li>
+                        <a href="/disponibilidade" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
+                            <i class="fas fa-chart-area mr-3"></i>
+                            Disponibilidade
+                        </a>
+                    </li>
+                    <li>
                         <a href="/" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
                             <i class="fas fa-file-upload mr-3"></i>
                             Importação e Histórico
@@ -182,7 +194,7 @@
                 <nav class="bg-gradient-to-r from-gray-800 to-gray-900 p-4 shadow-2xl rounded-lg mb-6 border border-gray-700">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h1 class="text-ghcwhite font-semibold text-2xl">
+                            <h1 class="text-white font-semibold text-2xl">
                                 <i class="fas fa-chart-bar mr-2"></i>
                                 Painel de Ocupação de Leitos
                             </h1>
@@ -213,7 +225,7 @@
                 <!-- Filters Panel -->
                 <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 hidden animate-fade-in border border-gray-700">
                     <h3 class="text-lg font-bold text-white mb-4">
-                        <i class="fas fa-filter mr-2 text-ghcturquoise"></i>
+                        <i class="fas fa-filter mr-2 text-blue-400"></i>
                         Filtros Avançados
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -280,7 +292,7 @@
                     </div>
                     <div class="flex gap-2 mt-4">
                         <button onclick="applyFilters()" 
-                            class="bg-ghcturquoise hover:bg-ghcgreen text-white px-6 py-2 rounded-lg transition">
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition">
                             <i class="fas fa-check mr-2"></i>
                             Aplicar Filtros
                         </button>
@@ -385,7 +397,7 @@
 
                     <!-- Secondary Stats -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 animate-fade-in">
-                        <div class="bg-gradient-to-br from-ghcturquoise to-blue-600 rounded-lg p-6 shadow-lg text-white card-hover">
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg p-6 shadow-lg text-white card-hover">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="text-white text-sm font-semibold uppercase mb-2">Taxa de Ocupação Geral</div>
@@ -442,7 +454,7 @@
                             </div>
                         </div>
 
-                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
                             <h3 class="font-bold text-white mb-4 text-lg">
                                 <i class="fas fa-chart-bar mr-2 text-green-400"></i>
                                 Taxa de Ocupação por Clínica
@@ -451,6 +463,8 @@
                                 <canvas id="grafico-clinica"></canvas>
                             </div>
                         </div>
+
+                            <!-- Impedimentos Chart moved to Disponibilidade page -->
                     </div>
                 </div>
             </div>
@@ -865,6 +879,7 @@
             loadStats();
             loadEvolucaoChart();
             loadClinicaChart();
+            // impediments chart moved to Disponibilidade
         }
 
         // Load version
@@ -886,8 +901,11 @@
             loadStats();
             loadEvolucaoChart();
             loadClinicaChart();
+            // impediments chart moved to Disponibilidade
             loadClinicasFilter();
         });
+
+        // impediments chart moved to Disponibilidade
     </script>
 </body>
 </html>

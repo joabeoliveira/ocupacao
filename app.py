@@ -152,6 +152,88 @@ def upload_file():
         flash(f'Erro técnico: {str(e)}', 'error')
         return redirect(url_for('index'))
 
+
+@app.route('/fix_date', methods=['POST'])
+def fix_date():
+    """Move records from one data_referencia to another (correction tool).
+
+    Expects form fields: from_date (errada) and to_date (correta).
+    """
+    from_date = request.form.get('from_date')
+    to_date = request.form.get('to_date')
+
+    if not from_date or not to_date:
+        flash('Ambas as datas (errada e correta) são obrigatórias.', 'error')
+        return redirect(url_for('index'))
+
+    # Parse dates safely
+    try:
+        dt_from = pd.to_datetime(from_date, dayfirst=True)
+        dt_to = pd.to_datetime(to_date, dayfirst=True)
+        db_from = dt_from.strftime('%Y-%m-%d')
+        db_to = dt_to.strftime('%Y-%m-%d')
+        visual_from = dt_from.strftime('%d/%m/%Y')
+        visual_to = dt_to.strftime('%d/%m/%Y')
+    except Exception as e:
+        flash(f'Formato de data inválido: {str(e)}', 'error')
+        return redirect(url_for('index'))
+
+    try:
+        with engine.begin() as conn:
+            # Count how many rows exist for from_date
+            cnt = conn.execute(text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": db_from}).scalar()
+            if cnt == 0:
+                flash(f'Nenhum registro encontrado para {visual_from}. Nada foi alterado.', 'error')
+                return redirect(url_for('index'))
+
+            # Perform update: move rows to new date
+            result = conn.execute(text("UPDATE historico_ocupacao_completo SET data_referencia = :to WHERE data_referencia = :frm"), {"to": db_to, "frm": db_from})
+            updated = result.rowcount if result is not None else None
+
+        flash(f'{updated} registros movidos de {visual_from} para {visual_to}.', 'success')
+        return redirect(url_for('index'))
+    except Exception as e:
+        print(f"ERRO AO CORRIGIR DATA: {e}", flush=True)
+        flash(f'Erro ao corrigir data: {str(e)}', 'error')
+        return redirect(url_for('index'))
+
+
+@app.route('/delete_date', methods=['POST'])
+def delete_date():
+    """Deletes all records for a given data_referencia. Use with caution."""
+    target = request.form.get('target_date')
+    confirm = request.form.get('confirm')
+    if not target:
+        flash('Data é obrigatória para exclusão.', 'error')
+        return redirect(url_for('index'))
+    if confirm != 'on':
+        flash('Por segurança, marque a confirmação antes de excluir.', 'error')
+        return redirect(url_for('index'))
+
+    try:
+        dt = pd.to_datetime(target, dayfirst=True)
+        db_target = dt.strftime('%Y-%m-%d')
+        visual = dt.strftime('%d/%m/%Y')
+    except Exception as e:
+        flash(f'Formato de data inválido: {str(e)}', 'error')
+        return redirect(url_for('index'))
+
+    try:
+        with engine.begin() as conn:
+            cnt = conn.execute(text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": db_target}).scalar()
+            if cnt == 0:
+                flash(f'Nenhum registro encontrado para {visual}.', 'error')
+                return redirect(url_for('index'))
+            res = conn.execute(text("DELETE FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": db_target})
+            deleted = res.rowcount if res is not None else None
+
+        flash(f'{deleted} registros excluídos para {visual}.', 'success')
+        return redirect(url_for('index'))
+    except Exception as e:
+        print(f"ERRO AO EXCLUIR DATA: {e}", flush=True)
+        flash(f'Erro ao excluir registros: {str(e)}', 'error')
+        return redirect(url_for('index'))
+
 # ===== ROTAS API REST =====
 @app.route('/api/version')
 def api_version():
@@ -466,6 +548,162 @@ def api_painel_clinicas():
         return {"error": str(e)}, 500
 
 
+@app.route('/api/painel/impedimentos')
+def api_painel_impedimentos():
+    """Retorna motivos de impedimento e contagens, respeitando filtros."""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        predio = request.args.get('predio')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        clinica = request.args.get('clinica')
+
+        with engine.connect() as conn:
+            where_conditions = ["status_leito LIKE '%IMPEDIDO%' OR status_leito LIKE '%BLOQUEADO%'"]
+            params = {}
+
+            # Handle date filtering
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+                # If mes is also provided with period, add month filter too
+                if mes:
+                    where_conditions.append("MONTH(data_referencia) = :mes")
+                    params['mes'] = mes
+            elif mes:
+                # Month-only filter: use same year as latest data
+                sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
+                last = conn.execute(sql_last).scalar()
+                if not last:
+                    return {"error": "Sem dados disponíveis"}, 404
+                params['mes'] = mes
+                params['last_year'] = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                where_conditions.append("YEAR(data_referencia) = :last_year")
+            else:
+                # No filters: default to last 14 days
+                sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
+                last = conn.execute(sql_last).scalar()
+                if not last:
+                    return {"error": "Sem dados disponíveis"}, 404
+                where_conditions.append("data_referencia BETWEEN DATE_SUB(:last, INTERVAL 13 DAY) AND :last")
+                params['last'] = last
+
+            if clinica:
+                where_conditions.append("nome_enfermaria = :clinica")
+                params['clinica'] = clinica
+
+            if predio == '1':
+                where_conditions.append("num_enf BETWEEN 111 AND 199")
+            elif predio == '2':
+                where_conditions.append("num_enf BETWEEN 200 AND 299")
+
+            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+
+            sql = text(f"""
+                SELECT COALESCE(NULLIF(TRIM(motivo_impedimento), ''), 'Sem motivo informado') as motivo,
+                       COUNT(*) as cnt
+                FROM historico_ocupacao_completo
+                WHERE {where_clause}
+                GROUP BY motivo
+                ORDER BY cnt DESC
+                LIMIT 20
+            """)
+
+            rows = conn.execute(sql, params).mappings().all()
+
+            return {"labels": [r['motivo'] for r in rows], "data": [int(r['cnt']) for r in rows]}
+
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/disponibilidade')
+def disponibilidade():
+    return render_template('disponibilidade.html')
+
+
+@app.route('/api/disponibilidade')
+def api_disponibilidade():
+    """Retorna série temporal de disponibilidade (vagos, ocupados, cedidos, impedidos, reservados)"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        predio = request.args.get('predio')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        clinica = request.args.get('clinica')
+
+        with engine.connect() as conn:
+            where_conditions = []
+            params = {}
+
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            else:
+                # If month filter is provided without explicit period, filter by the same year
+                # as the latest available date and by the requested month. Otherwise default
+                # to last 14 days window.
+                sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
+                last = conn.execute(sql_last).scalar()
+                if not last:
+                    return {"error": "Sem dados disponíveis"}, 404
+
+                if mes:
+                    # restrict to same year as last recorded date and requested month
+                    params['mes'] = mes
+                    params['last_year'] = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
+                    where_conditions.append("MONTH(data_referencia) = :mes")
+                    where_conditions.append("YEAR(data_referencia) = :last_year")
+                else:
+                    where_conditions.append("data_referencia BETWEEN DATE_SUB(:last, INTERVAL 13 DAY) AND :last")
+                    params['last'] = last
+            if clinica:
+                where_conditions.append("nome_enfermaria = :clinica")
+                params['clinica'] = clinica
+            if predio == '1':
+                where_conditions.append("num_enf BETWEEN 111 AND 199")
+            elif predio == '2':
+                where_conditions.append("num_enf BETWEEN 200 AND 299")
+
+            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+
+            sql = text(f"""
+                SELECT DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    COALESCE(SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END), 0) as vagos,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
+                    COALESCE(SUM(CASE WHEN status_leito = 'CEDIDO' THEN 1 ELSE 0 END), 0) as cedidos,
+                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' THEN 1 ELSE 0 END), 0) as impedidos,
+                    COALESCE(SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END), 0) as reservados
+                FROM historico_ocupacao_completo
+                WHERE {where_clause}
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            rows = conn.execute(sql, params).mappings().all()
+
+            return {
+                "labels": [r['dia'] for r in rows],
+                "datasets": [
+                    {"label": "Vagos", "data": [int(r['vagos']) for r in rows], "backgroundColor": "rgba(34,197,94,0.6)", "borderColor": "rgba(34,197,94,1)", "type": "bar", "stack": "status"},
+                    {"label": "Ocupados", "data": [int(r['ocupados']) for r in rows], "backgroundColor": "rgba(59,130,246,0.6)", "borderColor": "rgba(59,130,246,1)", "type": "bar", "stack": "status"},
+                    {"label": "Cedido", "data": [int(r['cedidos']) for r in rows], "backgroundColor": "rgba(255,159,64,0.6)", "borderColor": "rgba(255,159,64,1)", "type": "bar", "stack": "status"},
+                    {"label": "Impedidos", "data": [int(r['impedidos']) for r in rows], "backgroundColor": "rgba(220,38,38,0.6)", "borderColor": "rgba(220,38,38,1)", "type": "bar", "stack": "status"},
+                    {"label": "Reservados", "data": [int(r['reservados']) for r in rows], "backgroundColor": "rgba(148,163,184,0.6)", "borderColor": "rgba(148,163,184,1)", "type": "bar", "stack": "status"}
+                ]
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @app.route('/api/tempo_permanencia')
 def api_tempo_permanencia():
     """Retorna métricas e lista de pacientes por tempo de permanência"""
@@ -580,10 +818,67 @@ def api_tempo_permanencia():
                 else:
                     buckets['>90'] += 1
 
-            # Paginação
+            # Paginação (base para KPIs/histograma)
             start = (page - 1) * per_page
             end = start + per_page
             page_items = patients[start:end]
+
+            # Se houver filtros (parâmetros de filtros presentes), a tabela de 'Longa Permanência'
+            # deve listar apenas pacientes com mais de 30 dias. Construímos uma segunda query
+            # com HAVING para obter somente esses pacientes e paginamos sobre ela.
+            filter_present = any([
+                request.args.get('data_referencia'), request.args.get('periodo_inicio'), request.args.get('periodo_fim'),
+                request.args.get('mes'), request.args.get('clinica'), request.args.get('predio')
+            ])
+
+            patients_table = patients
+            patients_table_total = len(patients)
+
+            if filter_present:
+                # Garante que params contenha data_referencia para o TIMESTAMPDIFF
+                params_longa = dict(params)
+                if 'data_referencia' not in params_longa:
+                    params_longa['data_referencia'] = selected_date
+
+                sql_patients_longa = text(f"""
+                    SELECT
+                        COALESCE(NULLIF(TRIM(prontuario), ''), cns_paciente, nome_paciente) as patient_id,
+                        MIN(data_internacao) as data_internacao,
+                        MAX(nome_paciente) as nome_paciente,
+                        MAX(prontuario) as prontuario,
+                        MAX(idade) as idade,
+                        MAX(sexo) as sexo,
+                        MAX(nome_enfermaria) as nome_enfermaria,
+                        TIMESTAMPDIFF(DAY, MIN(data_internacao), :data_referencia) as dias
+                    FROM historico_ocupacao_completo
+                    WHERE {where_clause}
+                    GROUP BY patient_id
+                    HAVING TIMESTAMPDIFF(DAY, MIN(data_internacao), :data_referencia) > 30
+                    ORDER BY dias DESC
+                """)
+
+                rows_longa = conn.execute(sql_patients_longa, params_longa).mappings().all()
+                patients_longa = []
+                dias_list_longa = []
+                for r in rows_longa:
+                    dias = int(r['dias']) if r['dias'] is not None else 0
+                    dias_list_longa.append(dias)
+                    patients_longa.append({
+                        'patient_id': r['patient_id'],
+                        'nome': r['nome_paciente'] or '',
+                        'prontuario': r['prontuario'],
+                        'idade': int(r['idade']) if r['idade'] is not None else None,
+                        'sexo': r['sexo'],
+                        'clinica': r['nome_enfermaria'],
+                        'data_internacao': str(r['data_internacao']) if r['data_internacao'] is not None else None,
+                        'dias': dias
+                    })
+
+                patients_table = patients_longa
+                patients_table_total = len(patients_longa)
+
+                # Paginação sobre lista de longa permanência
+                page_items = patients_table[(page-1)*per_page : (page-1)*per_page + per_page]
 
             # Mask names for frontend display (keep full name available only for export endpoint)
             def mask_name(full):
@@ -614,7 +909,8 @@ def api_tempo_permanencia():
                 'histogram': buckets,
                 'page': page,
                 'per_page': per_page,
-                'patients': page_items
+                'patients': page_items,
+                'patients_table_total': patients_table_total
             })
 
     except Exception as e:

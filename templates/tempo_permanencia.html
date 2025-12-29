@@ -1,46 +1,79 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html class="dark" lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tempo de Permanência - NIR Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                darkMode: 'class',
+                theme: {
+                    extend: {
+                        colors: {
+                            "primary": "#0b72d9",
+                            "background-light": "#f7fbff",
+                            "background-dark": "#0f1724",
+                            "surface-light": "#ffffff",
+                            "surface-dark": "#111827",
+                            "text-primary-light": "#0b1724",
+                            "text-primary-dark": "#e6eef8",
+                            "text-secondary-light": "#4b5563",
+                            "text-secondary-dark": "#9fb6d8",
+                        }
+                    }
+                }
+            }
+        </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* Variáveis de tema */
         :root {
-            --bg-primary: #111827;
-            --text-primary: #F9FAFB;
-            --card-bg: linear-gradient(to bottom right, #1F2937, #111827);
-            --sidebar-bg: #000000;
-            --border-color: rgba(30, 64, 175, 0.5);
-            --input-bg: #FFFFFF;
-            --input-text: #111827;
-            --input-border: #D1D5DB;
-            --chart-blue: rgba(59, 130, 246, 0.8);
-            --chart-green: rgba(34, 197, 94, 0.8);
-            --chart-text: #F9FAFB;
-            --chart-grid: rgba(255, 255, 255, 0.1);
+            --bg-primary: #0f1724;
+            --bg-secondary: #111827;
+            --bg-tertiary: #0b1a2a;
+            --text-primary: #e6eef8;
+            --text-secondary: #9fb6d8;
+            --text-tertiary: #9fb6d8;
+            --border-color: #111827;
+            --card-bg: linear-gradient(to bottom right, #111827, #0f1724);
+            --sidebar-bg: #071025;
+            --chart-blue: rgba(11, 114, 217, 0.85);
+            --chart-green: rgba(22, 163, 74, 0.85);
+            --chart-text: #e6eef8;
+            --chart-grid: rgba(255, 255, 255, 0.06);
         }
+        
         [data-theme="light"] {
-            --bg-primary: #F3F4F6;
-            --text-primary: #111827;
-            --card-bg: linear-gradient(to bottom right, #FFFFFF, #F9FAFB);
+            --bg-primary: #f7fbff;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0b1724;
+            --text-secondary: #4b5563;
+            --text-tertiary: #6B7280;
+            --border-color: #E5E7EB;
+            --card-bg: linear-gradient(to bottom right, #ffffff, #f7fbff);
             --sidebar-bg: #1E3A8A;
-            --border-color: rgba(59, 130, 246, 0.3);
-            --input-bg: #FFFFFF;
-            --input-text: #111827;
-            --input-border: #D1D5DB;
-            --chart-blue: rgba(37, 99, 235, 0.8);
-            --chart-green: rgba(22, 163, 74, 0.8);
-            --chart-text: #111827;
-            --chart-grid: rgba(0, 0, 0, 0.1);
+            --chart-blue: rgba(11, 114, 217, 0.85);
+            --chart-green: rgba(22, 163, 74, 0.85);
+            --chart-text: #0b1724;
+            --chart-grid: rgba(0, 0, 0, 0.06);
         }
-        .bg-theme { background: var(--bg-primary); color: var(--text-primary); }
+        
+        /* Classes utilitárias para tema */
+        .bg-theme-primary { background-color: var(--bg-primary); }
+        .bg-theme-secondary { background: var(--card-bg); }
+        .text-theme-primary { color: var(--text-primary); }
+        .text-theme-secondary { color: var(--text-secondary); }
+        .text-theme-tertiary { color: var(--text-tertiary); }
+        .border-theme { border-color: var(--border-color); }
+        
+        /* Estilos para inputs e selects - texto sempre legível */
         input, select {
-            background-color: var(--input-bg) !important;
-            color: var(--input-text) !important;
-            border-color: var(--input-border) !important;
+            background-color: #FFFFFF !important;
+            color: #111827 !important;
+            border-color: #D1D5DB !important;
         }
         input::placeholder {
             color: #6B7280 !important;
@@ -51,25 +84,14 @@
             transition: transform 0.3s ease-in-out;
             transform: none;
         }
-        .sidebar-hidden {
-            transform: translateX(-100%);
-        }
+        .sidebar-hidden { transform: translateX(-100%); }
         @media (max-width: 768px) {
-            .sidebar {
-                z-index: 20 !important;
-            }
-            .main-content {
-                margin-left: 0 !important;
-            }
+            .sidebar { z-index: 20 !important; }
+            .main-content { margin-left: 0 !important; }
         }
         @media (min-width: 769px) {
             .sidebar { transform: none !important; }
             .menu-overlay { display: none !important; }
-        }
-        @media (min-width: 769px) {
-            .sidebar {
-                transform: translateX(0) !important;
-            }
         }
         .menu-overlay {
             display: none;
@@ -84,9 +106,33 @@
         .menu-overlay.active {
             display: block;
         }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
-<body class="bg-theme font-sans" style="min-height:100vh;">
+<body class="font-sans" style="background-color: var(--bg-primary); min-height:100vh;">
     <!-- Mobile Menu Overlay -->
     <div class="menu-overlay" id="menu-overlay" onclick="toggleMobileMenu()"></div>
     
@@ -120,6 +166,12 @@
                         </a>
                     </li>
                     <li>
+                        <a href="/disponibilidade" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
+                            <i class="fas fa-chart-area mr-3"></i>
+                            Disponibilidade
+                        </a>
+                    </li>
+                    <li>
                         <a href="/" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
                             <i class="fas fa-file-upload mr-3"></i>
                             Importação e Histórico
@@ -133,87 +185,113 @@
         <div class="main-content flex-1 md:ml-64">
             <div class="container mx-auto mt-16 md:mt-8 px-4 pb-12">
                 <!-- Header -->
-                <div class="flex items-center justify-between mb-6 bg-white/5 p-4 rounded border" style="border-color: var(--border-color);">
-                    <h1 class="text-2xl font-bold">Tempo de Permanência</h1>
-                    <div>
-                        <button onclick="toggleTheme()" id="theme-toggle" class="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-600">
-                            <i id="theme-icon" class="fas fa-sun"></i>
-                        </button>
+                <nav class="bg-gradient-to-r from-gray-800 to-gray-900 p-4 shadow-2xl rounded-lg mb-6 border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <h1 class="text-white font-semibold text-2xl">
+                            <i class="fas fa-clock mr-2"></i>
+                            Tempo de Permanência
+                        </h1>
+                        <div class="flex gap-2">
+                            <button onclick="toggleTheme()" id="theme-toggle" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition">
+                                <i id="theme-icon" class="fas fa-sun"></i>
+                            </button>
+                            <button onclick="toggleFilters()" class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded transition">
+                                <i class="fas fa-filter mr-2"></i>
+                                Filtros
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </nav>
 
         <!-- Filtros -->
-        <div class="bg-white/5 p-4 rounded mb-4 border">
+        <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 border border-gray-700 hidden">
+            <h3 class="text-lg font-bold text-white mb-4"><i class="fas fa-filter mr-2 text-blue-400"></i>Filtros</h3>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-sm">Data de Referência</label>
-                    <input type="date" id="filter-data" class="w-full px-3 py-2 rounded border">
+                    <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-calendar-alt mr-1"></i>Data de Referência</label>
+                    <input type="date" id="filter-data" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
-                    <label class="block text-sm">Clínica</label>
-                    <select id="filter-clinica" class="w-full px-3 py-2 rounded border">
+                    <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-hospital-user mr-1"></i>Clínica</label>
+                    <select id="filter-clinica" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500">
                         <option value="">Todas</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm">Prédio</label>
-                    <select id="filter-predio" class="w-full px-3 py-2 rounded border">
+                    <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-building mr-1"></i>Prédio</label>
+                    <select id="filter-predio" class="w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500">
                         <option value="">Todos</option>
                         <option value="1">Prédio 1</option>
                         <option value="2">Prédio 2</option>
                     </select>
                 </div>
                 <div class="flex items-end gap-2">
-                    <button onclick="applyFilters()" class="px-4 py-2 bg-blue-600 text-white rounded">Aplicar</button>
-                    <button onclick="clearFilters()" class="px-4 py-2 bg-gray-500 text-white rounded">Limpar</button>
-                    <button onclick="exportExcel()" id="export-btn" class="px-4 py-2 bg-green-600 text-white rounded">Exportar Excel</button>
+                    <button onclick="applyFilters()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"><i class="fas fa-check mr-1"></i>Aplicar</button>
+                    <button onclick="clearFilters()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition"><i class="fas fa-times mr-1"></i>Limpar</button>
+                    <button onclick="exportExcel()" id="export-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition"><i class="fas fa-file-excel mr-1"></i>Excel</button>
                 </div>
             </div>
         </div>
 
         <!-- Cards -->
         <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-            <div class="md:col-span-2 bg-white/5 p-4 rounded" title="Número total de pacientes internados na data de referência">
-                <div class="text-sm text-gray-400">Total Pacientes Internados</div>
-                <div id="kp-total" class="text-2xl font-bold">-</div>
+            <div class="md:col-span-2 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg p-6 shadow-lg text-white card-hover" title="Número total de pacientes internados na data de referência">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-semibold uppercase mb-2">Total Pacientes Internados</div>
+                        <div id="kp-total" class="text-3xl font-bold">-</div>
+                    </div>
+                    <div class="text-4xl opacity-50">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
             </div>
-            <div class="bg-white/5 p-4 rounded" title="Média de dias internados (todos os pacientes)">
-                <div class="text-sm text-gray-400">Permanência Média (dias)</div>
-                <div id="kp-avg" class="text-2xl font-bold">-</div>
+            <div class="bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg p-6 shadow-lg text-white card-hover" title="Média de dias internados (todos os pacientes)">
+                <div class="text-sm font-semibold uppercase mb-2">Permanência Média</div>
+                <div id="kp-avg" class="text-3xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded" title="Mediana de dias internados (calculada no backend)">
-                <div class="text-sm text-gray-400">Mediana (dias)</div>
-                <div id="kp-med" class="text-2xl font-bold">-</div>
+            <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-lg p-6 shadow-lg text-white card-hover" title="Mediana de dias internados">
+                <div class="text-sm font-semibold uppercase mb-2">Mediana (dias)</div>
+                <div id="kp-med" class="text-3xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded" title="Pacientes com mais de 30 dias de internação">
-                <div class="text-sm text-gray-400">>30 dias</div>
-                <div id="kp-30" class="text-2xl font-bold">-</div>
+            <div class="bg-gradient-to-br from-orange-600 to-orange-800 rounded-lg p-6 shadow-lg text-white card-hover" title="Pacientes com mais de 30 dias de internação">
+                <div class="text-sm font-semibold uppercase mb-2">>30 dias</div>
+                <div id="kp-30" class="text-3xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded" title="Pacientes com >30 dias e idade >=60 anos">
-                <div class="text-sm text-gray-400">>30 dias (>=60 anos)</div>
-                <div id="kp-30-60" class="text-2xl font-bold">-</div>
+            <div class="bg-gradient-to-br from-red-600 to-red-800 rounded-lg p-6 shadow-lg text-white card-hover" title="Pacientes com >30 dias e idade >=60 anos">
+                <div class="text-sm font-semibold uppercase mb-2">>30d (>=60a)</div>
+                <div id="kp-30-60" class="text-3xl font-bold">-</div>
             </div>
-            <div class="bg-white/5 p-4 rounded" title="Pacientes pediátricos (<18 anos) com >30 dias">
-                <div class="text-sm text-gray-400">>30 dias (Pediatria)</div>
-                <div id="kp-30-ped" class="text-2xl font-bold">-</div>
+            <div class="bg-gradient-to-br from-pink-600 to-pink-800 rounded-lg p-6 shadow-lg text-white card-hover" title="Pacientes pediátricos (<18 anos) com >30 dias">
+                <div class="text-sm font-semibold uppercase mb-2">>30d (Ped.)</div>
+                <div id="kp-30-ped" class="text-3xl font-bold">-</div>
             </div>
         </div>
 
         <!-- Charts -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div class="bg-white/5 p-4 rounded">
-                <h3 class="font-bold mb-2">Histograma de Permanência</h3>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                <h3 class="font-bold text-white mb-4 text-lg">
+                    <i class="fas fa-chart-bar mr-2 text-blue-400"></i>
+                    Histograma de Permanência
+                </h3>
                 <div style="height:300px"><canvas id="histogramChart"></canvas></div>
             </div>
-            <div class="bg-white/5 p-4 rounded">
-                <h3 class="font-bold mb-2">Longa Permanência por Clínica (Top 10)</h3>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                <h3 class="font-bold text-white mb-4 text-lg">
+                    <i class="fas fa-hospital-user mr-2 text-green-400"></i>
+                    Longa Permanência por Clínica (Top 10)
+                </h3>
                 <div style="height:300px"><canvas id="clinicaChart"></canvas></div>
             </div>
         </div>
 
         <!-- Table -->
-        <div class="bg-white/5 p-4 rounded">
-            <h3 class="font-bold mb-2">Pacientes - Longa Permanência (lista)</h3>
+        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+            <h3 class="font-bold text-white mb-4 text-lg">
+                <i class="fas fa-list mr-2 text-yellow-400"></i>
+                Pacientes - Longa Permanência (lista)
+            </h3>
             <div class="overflow-x-auto">
                 <table class="min-w-full table-auto">
                     <thead>
@@ -301,6 +379,11 @@ window.addEventListener('resize', () => {
     }
 });
 
+function toggleFilters() { 
+    const panel = document.getElementById('filters-panel'); 
+    panel.classList.toggle('hidden'); 
+}
+
 function applyFilters(){
     const data = document.getElementById('filter-data').value;
     const clinica = document.getElementById('filter-clinica').value;
@@ -311,6 +394,7 @@ function applyFilters(){
     if(predio) currentFilters.predio = predio;
     currentPage = 1;
     loadData();
+    toggleFilters();
 }
 function clearFilters(){
     document.getElementById('filter-data').value = '';
@@ -395,8 +479,9 @@ async function loadData(){
                 tbody.appendChild(tr);
             }
         }
-        const totalPages = Math.ceil(json.total_patients / perPage);
-        document.getElementById('pagination-info').textContent = `Página ${json.page} de ${totalPages} — mostrando ${patients.length} de ${json.total_patients}`;
+        const tableTotal = json.patients_table_total !== undefined ? json.patients_table_total : json.total_patients;
+        const totalPages = Math.max(1, Math.ceil(tableTotal / perPage));
+        document.getElementById('pagination-info').textContent = `Página ${json.page} de ${totalPages} — mostrando ${patients.length} de ${tableTotal}`;
         document.getElementById('page-display').textContent = `${json.page} / ${totalPages}`;
         document.getElementById('btn-prev').disabled = currentPage <= 1;
         document.getElementById('btn-next').disabled = currentPage >= totalPages;
@@ -414,6 +499,11 @@ function exportExcel(){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{ loadTheme(); initMobileMenu(); loadClinicasFilter(); loadData(); });
+// Load version and update UI
+async function loadVersion(){
+    try{ const r = await fetch('/api/version'); const j = await r.json(); document.getElementById('app-version').textContent = `v${j.version}`; }catch(e){/*ignore*/}
+}
+loadVersion();
 </script>
             </div>
         </div>
