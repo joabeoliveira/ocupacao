@@ -225,15 +225,31 @@
                         <i class="fas fa-cloud-upload-alt mr-2 text-blue-400"></i>
                         Importar Dados de Ocupação
                     </h2>
-                    <form action="/upload" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    <form action="/upload" method="POST" enctype="multipart/form-data" class="space-y-4" id="upload-form">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-300 mb-2">
                                     <i class="fas fa-file-csv mr-1"></i>
-                                    Arquivo CSV
+                                    Arquivo (CSV / XLS / XLSX)
                                 </label>
-                                <input type="file" name="file" required accept=".csv"
-                                    class="w-full px-4 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <input type="file" name="file" required accept=".csv,.xls,.xlsx"
+                                    class="w-full px-4 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" id="upload-file-input" aria-label="Escolha um arquivo CSV ou Excel (.csv, .xls, .xlsx)" aria-describedby="upload-help upload-msg" title="Aceita .csv, .xls, .xlsx — o cabeçalho deve estar na 3ª linha">
+                                <div class="flex items-start mt-2">
+                                    <p id="upload-help" class="text-xs text-gray-400">Tipos aceitos: <strong>.csv</strong>, <strong>.xls</strong>, <strong>.xlsx</strong>. As duas primeiras linhas do arquivo serão ignoradas (o cabeçalho deve estar na 3ª linha).</p>
+
+                                    <div class="ml-2 relative group" style="display:inline-block">
+                                        <i class="fas fa-question-circle text-gray-400 ml-2 cursor-pointer" tabindex="0" aria-haspopup="true" aria-controls="upload-tooltip" aria-expanded="false"></i>
+                                        <div id="upload-tooltip" role="tooltip" aria-hidden="true"
+                                            class="absolute z-50 left-0 mt-8 w-72 p-2 text-xs text-white bg-black rounded shadow-lg
+                                                   opacity-0 translate-y-1 pointer-events-none
+                                                   transition-opacity transition-transform duration-200
+                                                   group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto
+                                                   group-focus:opacity-100 group-focus:translate-y-0 group-focus:pointer-events-auto">
+                                            Aceitamos arquivos <strong>.csv</strong>, <strong>.xls</strong> e <strong>.xlsx</strong>. O sistema ignora as duas primeiras linhas do arquivo; coloque o cabeçalho na 3ª linha e os dados a partir da 4ª linha.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="upload-msg" class="mt-2" role="status" aria-live="polite"></div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-300 mb-2">
@@ -245,9 +261,9 @@
                             </div>
                         </div>
                         <button type="submit" 
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105">
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105" aria-label="Importar arquivo — ignora as duas primeiras linhas" title="Importa arquivo e ignora as duas primeiras linhas">
                             <i class="fas fa-upload mr-2"></i>
-                            Importar Arquivo
+                            Importar — ignora 2 primeiras linhas
                         </button>
                     </form>
                 </div>
@@ -652,6 +668,39 @@
             loadStats();
             loadChart();
             loadHistory();
+
+            // Client-side validation for upload: aceita .csv, .xls, .xlsx
+            const uploadForm = document.getElementById('upload-form');
+            const uploadInput = document.getElementById('upload-file-input');
+            const uploadMsg = document.getElementById('upload-msg');
+            const allowedExt = ['.csv', '.xls', '.xlsx'];
+
+            if (uploadInput) {
+                uploadInput.addEventListener('change', () => {
+                    // limpa mensagem anterior
+                    if (uploadMsg) uploadMsg.innerHTML = '';
+                });
+            }
+
+            if (uploadForm) {
+                uploadForm.addEventListener('submit', (e) => {
+                    if (!uploadInput || !uploadInput.files || uploadInput.files.length === 0) return;
+                    const fname = uploadInput.files[0].name.toLowerCase();
+                    const ok = allowedExt.some(ext => fname.endsWith(ext));
+                    if (!ok) {
+                        e.preventDefault();
+                        if (uploadMsg) {
+                            uploadMsg.innerHTML = `<div class="p-3 rounded bg-red-600 text-white text-sm">Tipo inválido. Envie um arquivo <strong>.csv</strong>, <strong>.xls</strong> ou <strong>.xlsx</strong>.</div>`;
+                        } else {
+                            alert('Tipo inválido. Envie .csv, .xls ou .xlsx');
+                        }
+                        uploadInput.focus();
+                        return false;
+                    }
+                    // mostra nota de processamento
+                    if (uploadMsg) uploadMsg.innerHTML = `<div class="p-2 rounded bg-green-700 text-white text-sm">Arquivo aceito. As duas primeiras linhas serão ignoradas na importação.</div>`;
+                });
+            }
         });
     </script>
 </body>

@@ -104,12 +104,24 @@ def upload_file():
             flash(f'Formato de data inválido: {data_ref_input}', 'error')
             return redirect(url_for('index'))
 
-        # Leitura do CSV
+        # Leitura do arquivo: aceita CSV e XLS/XLSX e ignora as 2 primeiras linhas (header na 3ª linha)
+        filename = (file.filename or '').lower()
+        df = None
         try:
-            df = pd.read_csv(file, encoding='utf-8', sep=',')
-        except:
             file.seek(0)
-            df = pd.read_csv(file, encoding='latin1', sep=';')
+            if filename.endswith(('.xls', '.xlsx')):
+                df = pd.read_excel(file, header=2)
+            else:
+                # CSV: tenta utf-8 com vírgula, se falhar tenta latin1 com ponto-e-vírgula
+                try:
+                    df = pd.read_csv(file, header=2, encoding='utf-8', sep=',')
+                except Exception:
+                    file.seek(0)
+                    df = pd.read_csv(file, header=2, encoding='latin1', sep=';')
+        except Exception as e:
+            print(f"ERRO LEITURA ARQUIVO: {e}", flush=True)
+            flash(f'Erro ao ler o arquivo: {str(e)}', 'error')
+            return redirect(url_for('index'))
 
         # ETL
         df_banco = df.rename(columns=DE_PARA)
