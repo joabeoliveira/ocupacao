@@ -110,20 +110,28 @@ def upload_file():
         try:
             file.seek(0)
             if filename.endswith('.xlsx'):
-                # explicit engine for .xlsx
+                # explicit engine for .xlsx — read into BytesIO to avoid ambiguity
                 try:
-                    df = pd.read_excel(file, header=2, engine='openpyxl')
+                    file.seek(0)
+                    content = file.read()
+                    bio = BytesIO(content)
+                    df = pd.read_excel(bio, header=2, engine='openpyxl')
+                    print(f"Leitura .xlsx via openpyxl ({len(content)} bytes)", flush=True)
                 except Exception as e:
                     print(f"ERRO LEITURA XLSX: {e}", flush=True)
-                    flash('Erro ao ler .xlsx: verifique se a dependência openpyxl está instalada.', 'error')
+                    flash('Erro ao ler .xlsx: verifique se o arquivo é válido e se openpyxl está instalado.', 'error')
                     return redirect(url_for('index'))
             elif filename.endswith('.xls'):
-                # explicit engine for old .xls files
+                # explicit engine for old .xls files — use BytesIO
                 try:
-                    df = pd.read_excel(file, header=2, engine='xlrd')
+                    file.seek(0)
+                    content = file.read()
+                    bio = BytesIO(content)
+                    df = pd.read_excel(bio, header=2, engine='xlrd')
+                    print(f"Leitura .xls via xlrd ({len(content)} bytes)", flush=True)
                 except Exception as e:
                     print(f"ERRO LEITURA XLS: {e}", flush=True)
-                    flash('Erro ao ler .xls: verifique se a dependência xlrd (versão compatível) está instalada.', 'error')
+                    flash('Erro ao ler .xls: verifique se o arquivo é válido e se xlrd (1.2.0) está instalado.', 'error')
                     return redirect(url_for('index'))
             else:
                 # CSV: tenta utf-8 com vírgula, se falhar tenta latin1 com ponto-e-vírgula
