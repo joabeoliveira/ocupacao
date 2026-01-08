@@ -109,8 +109,22 @@ def upload_file():
         df = None
         try:
             file.seek(0)
-            if filename.endswith(('.xls', '.xlsx')):
-                df = pd.read_excel(file, header=2)
+            if filename.endswith('.xlsx'):
+                # explicit engine for .xlsx
+                try:
+                    df = pd.read_excel(file, header=2, engine='openpyxl')
+                except Exception as e:
+                    print(f"ERRO LEITURA XLSX: {e}", flush=True)
+                    flash('Erro ao ler .xlsx: verifique se a dependência openpyxl está instalada.', 'error')
+                    return redirect(url_for('index'))
+            elif filename.endswith('.xls'):
+                # explicit engine for old .xls files
+                try:
+                    df = pd.read_excel(file, header=2, engine='xlrd')
+                except Exception as e:
+                    print(f"ERRO LEITURA XLS: {e}", flush=True)
+                    flash('Erro ao ler .xls: verifique se a dependência xlrd (versão compatível) está instalada.', 'error')
+                    return redirect(url_for('index'))
             else:
                 # CSV: tenta utf-8 com vírgula, se falhar tenta latin1 com ponto-e-vírgula
                 try:
@@ -119,7 +133,7 @@ def upload_file():
                     file.seek(0)
                     df = pd.read_csv(file, header=2, encoding='latin1', sep=';')
         except Exception as e:
-            print(f"ERRO LEITURA ARQUIVO: {e}", flush=True)
+            print(f"ERRO LEITURA ARQUIVO (geral): {e}", flush=True)
             flash(f'Erro ao ler o arquivo: {str(e)}', 'error')
             return redirect(url_for('index'))
 
