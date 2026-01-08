@@ -223,6 +223,7 @@ def delete_date():
         return redirect(url_for('index'))
 
     try:
+        # Tenta interpretar com dayfirst=True (padrão do sistema)
         dt = pd.to_datetime(target, dayfirst=True)
         db_target = dt.strftime('%Y-%m-%d')
         visual = dt.strftime('%d/%m/%Y')
@@ -234,8 +235,25 @@ def delete_date():
         with engine.begin() as conn:
             cnt = conn.execute(text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": db_target}).scalar()
             if cnt == 0:
+                # Tenta interpretação alternativa (dia/mês trocados) para detectar divergências de entrada
+                try:
+                    dt_alt = pd.to_datetime(target, dayfirst=False)
+                    alt_db = dt_alt.strftime('%Y-%m-%d')
+                    alt_visual = dt_alt.strftime('%d/%m/%Y')
+                    cnt_alt = conn.execute(text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": alt_db}).scalar()
+                except Exception:
+                    cnt_alt = 0
+
+                if cnt_alt > 0:
+                    # Exclui usando a interpretação alternativa e informa o usuário
+                    res = conn.execute(text("DELETE FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": alt_db})
+                    deleted = res.rowcount if res is not None else None
+                    flash(f'{deleted} registros excluídos para {alt_visual} (interpretado automaticamente).', 'success')
+                    return redirect(url_for('index'))
+
                 flash(f'Nenhum registro encontrado para {visual}.', 'error')
                 return redirect(url_for('index'))
+
             res = conn.execute(text("DELETE FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": db_target})
             deleted = res.rowcount if res is not None else None
 
