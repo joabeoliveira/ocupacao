@@ -115,8 +115,21 @@ def upload_file():
                     file.seek(0)
                     content = file.read()
                     bio = BytesIO(content)
-                    df = pd.read_excel(bio, header=2, engine='openpyxl')
-                    print(f"Leitura .xlsx via openpyxl ({len(content)} bytes)", flush=True)
+                    # Detect HTML-like uploads (sometimes Excel saved as webpage)
+                    head = content.lstrip()[:64].lower()
+                    if head.startswith(b'<') or b'<html' in head or b'<!doctype html' in head:
+                        # Try to parse HTML tables as fallback
+                        try:
+                            dfs = pd.read_html(BytesIO(content), header=2)
+                            df = dfs[0]
+                            print(f"Fallback: parsed HTML-like .xlsx upload via read_html ({len(content)} bytes)", flush=True)
+                        except Exception as e:
+                            print(f"ERRO LEITURA XLSX (html fallback): {e}", flush=True)
+                            flash('Arquivo parece ser HTML/corrompido. Salve o arquivo como .xlsx válido e tente novamente.', 'error')
+                            return redirect(url_for('index'))
+                    else:
+                        df = pd.read_excel(bio, header=2, engine='openpyxl')
+                        print(f"Leitura .xlsx via openpyxl ({len(content)} bytes)", flush=True)
                 except Exception as e:
                     print(f"ERRO LEITURA XLSX: {e}", flush=True)
                     flash('Erro ao ler .xlsx: verifique se o arquivo é válido e se openpyxl está instalado.', 'error')
@@ -127,11 +140,22 @@ def upload_file():
                     file.seek(0)
                     content = file.read()
                     bio = BytesIO(content)
-                    df = pd.read_excel(bio, header=2, engine='xlrd')
-                    print(f"Leitura .xls via xlrd ({len(content)} bytes)", flush=True)
+                    head = content.lstrip()[:64].lower()
+                    if head.startswith(b'<') or b'<html' in head or b'<!doctype html' in head:
+                        try:
+                            dfs = pd.read_html(BytesIO(content), header=2)
+                            df = dfs[0]
+                            print(f"Fallback: parsed HTML-like .xls upload via read_html ({len(content)} bytes)", flush=True)
+                        except Exception as e:
+                            print(f"ERRO LEITURA XLS (html fallback): {e}", flush=True)
+                            flash('Arquivo parece ser HTML/corrompido. Salve o arquivo como .xls válido e tente novamente.', 'error')
+                            return redirect(url_for('index'))
+                    else:
+                        df = pd.read_excel(bio, header=2, engine='xlrd')
+                        print(f"Leitura .xls via xlrd ({len(content)} bytes)", flush=True)
                 except Exception as e:
                     print(f"ERRO LEITURA XLS: {e}", flush=True)
-                    flash('Erro ao ler .xls: verifique se o arquivo é válido e se xlrd (1.2.0) está instalado.', 'error')
+                    flash('Erro ao ler .xls: verifique se o arquivo é válido e se xlrd (2.0.1) está instalado.', 'error')
                     return redirect(url_for('index'))
             else:
                 # CSV: tenta utf-8 com vírgula, se falhar tenta latin1 com ponto-e-vírgula
