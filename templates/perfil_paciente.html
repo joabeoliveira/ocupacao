@@ -113,7 +113,17 @@
                 <ul class="space-y-2">
                     <li><a href="/painel" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-bed mr-3"></i>Ocupação de Leitos</a></li>
                     <li><a href="/tempo_permanencia" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-clock mr-3"></i>Tempo de Permanência</a></li>
-                    <li><a href="/perfil_paciente" class="flex items-center px-6 py-3 bg-blue-800 rounded transition"><i class="fas fa-user-injured mr-3"></i>Perfil do Paciente</a></li>
+                    <li>
+                        <div class="px-6 py-3 bg-blue-800 rounded">
+                            <a href="/perfil_paciente" class="flex items-center"><i class="fas fa-user-injured mr-3"></i>Perfil do Paciente</a>
+                            <ul class="mt-2 ml-6 space-y-1">
+                                <li><a href="/perfil_paciente/sexo" class="text-sm text-gray-200 hover:text-white">Sexo</a></li>
+                                <li><a href="/perfil_paciente/idade" class="text-sm text-gray-200 hover:text-white">Idade</a></li>
+                                <li><a href="/perfil_paciente/tempo_permanencia" class="text-sm text-gray-200 hover:text-white">Tempo de Permanência</a></li>
+                                <li><a href="/perfil_paciente/clinica" class="text-sm text-gray-200 hover:text-white">Clínica</a></li>
+                            </ul>
+                        </div>
+                    </li>
                     <li><a href="/disponibilidade" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-chart-area mr-3"></i>Disponibilidade</a></li>
                     <li><a href="/" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-file-upload mr-3"></i>Importação e Histórico</a></li>
                 </ul>
