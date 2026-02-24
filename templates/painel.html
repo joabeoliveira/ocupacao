@@ -834,16 +834,20 @@
                             data: data.data,
                             backgroundColor: isDark ? barColor : 'rgba(22,163,74,0.70)',
                             borderColor: barBorder,
-                            borderWidth: 1
+                            borderWidth: 1,
+                            maxBarThickness: 28
                         }]
                     },
                     plugins: [chartShadowPlugin],
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        indexAxis: 'y',
                         scales: {
                             x: {
+                                ticks: { color: textColor },
+                                grid: { display: false }
+                            },
+                            y: {
                                 beginAtZero: true,
                                 max: 100,
                                 ticks: {
@@ -853,10 +857,6 @@
                                     }
                                 },
                                 grid: { color: gridColor }
-                            },
-                            y: {
-                                ticks: { color: textColor },
-                                grid: { display: false }
                             }
                         },
                         plugins: {
@@ -865,7 +865,7 @@
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
-                                        return 'Ocupação: ' + context.parsed.x + '%';
+                                        return 'Ocupação: ' + context.parsed.y + '%';
                                     }
                                 }
                             }
