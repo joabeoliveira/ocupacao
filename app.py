@@ -744,6 +744,135 @@ def api_perfil_paciente_sexo():
         return {"error": str(e)}, 500
 
 
+@app.route('/perfil_paciente/idade')
+def perfil_paciente_idade():
+    return render_template('perfil_paciente_idade.html')
+
+
+@app.route('/api/perfil_paciente/idade')
+def api_perfil_paciente_idade():
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    try:
+        selected_date = request.args.get('data')
+        with engine.connect() as conn:
+            if not selected_date:
+                sql_last = text("SELECT data_referencia FROM historico_ocupacao_completo ORDER BY data_referencia DESC LIMIT 1")
+                result = conn.execute(sql_last).scalar()
+                if result:
+                    selected_date = result
+                else:
+                    return {"error": "Sem dados disponíveis"}, 404
+
+            sql = text("""
+                SELECT
+                  CASE
+                    WHEN idade IS NULL THEN 'Não informado'
+                    WHEN idade < 18 THEN '0-17'
+                    WHEN idade BETWEEN 18 AND 29 THEN '18-29'
+                    WHEN idade BETWEEN 30 AND 44 THEN '30-44'
+                    WHEN idade BETWEEN 45 AND 59 THEN '45-59'
+                    WHEN idade BETWEEN 60 AND 74 THEN '60-74'
+                    ELSE '75+'
+                  END as faixa,
+                  COUNT(*) as cnt
+                FROM historico_ocupacao_completo
+                WHERE data_referencia = :data
+                GROUP BY faixa
+                ORDER BY FIELD(faixa, '0-17','18-29','30-44','45-59','60-74','75+','Não informado')
+            """)
+            rows = conn.execute(sql, {"data": selected_date}).mappings().all()
+            labels = [r['faixa'] for r in rows]
+            data = [int(r['cnt']) for r in rows]
+            return {"labels": labels, "data": data}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/perfil_paciente/tempo_permanencia')
+def perfil_paciente_tempo():
+    return render_template('perfil_paciente_tempo_permanencia.html')
+
+
+@app.route('/api/perfil_paciente/tempo_permanencia')
+def api_perfil_paciente_tempo():
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    try:
+        selected_date = request.args.get('data')
+        with engine.connect() as conn:
+            if not selected_date:
+                sql_last = text("SELECT data_referencia FROM historico_ocupacao_completo ORDER BY data_referencia DESC LIMIT 1")
+                result = conn.execute(sql_last).scalar()
+                if result:
+                    selected_date = result
+                else:
+                    return {"error": "Sem dados disponíveis"}, 404
+
+            sql = text("""
+                SELECT
+                  CASE
+                    WHEN dias IS NULL THEN 'Não informado'
+                    WHEN dias BETWEEN 0 AND 2 THEN '0-2'
+                    WHEN dias BETWEEN 3 AND 7 THEN '3-7'
+                    WHEN dias BETWEEN 8 AND 14 THEN '8-14'
+                    WHEN dias BETWEEN 15 AND 30 THEN '15-30'
+                    ELSE '31+'
+                  END as faixa,
+                  COUNT(*) as cnt
+                FROM (
+                  SELECT TIMESTAMPDIFF(DAY, data_internacao_leito, data_referencia) as dias
+                  FROM historico_ocupacao_completo
+                  WHERE data_referencia = :data
+                ) as t
+                GROUP BY faixa
+                ORDER BY FIELD(faixa, '0-2','3-7','8-14','15-30','31+','Não informado')
+            """)
+            rows = conn.execute(sql, {"data": selected_date}).mappings().all()
+            labels = [r['faixa'] for r in rows]
+            data = [int(r['cnt']) for r in rows]
+            return {"labels": labels, "data": data}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/perfil_paciente/clinica')
+def perfil_paciente_clinica():
+    return render_template('perfil_paciente_clinica.html')
+
+
+@app.route('/api/perfil_paciente/clinica')
+def api_perfil_paciente_clinica():
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    try:
+        selected_date = request.args.get('data')
+        with engine.connect() as conn:
+            if not selected_date:
+                sql_last = text("SELECT data_referencia FROM historico_ocupacao_completo ORDER BY data_referencia DESC LIMIT 1")
+                result = conn.execute(sql_last).scalar()
+                if result:
+                    selected_date = result
+                else:
+                    return {"error": "Sem dados disponíveis"}, 404
+
+            sql = text("""
+                SELECT nome_enfermaria as clinica,
+                       COUNT(*) as cnt
+                FROM historico_ocupacao_completo
+                WHERE data_referencia = :data
+                GROUP BY nome_enfermaria
+                ORDER BY cnt DESC
+                LIMIT 50
+            """)
+            rows = conn.execute(sql, {"data": selected_date}).mappings().all()
+            labels = [r['clinica'] for r in rows]
+            data = [int(r['cnt']) for r in rows]
+            return {"labels": labels, "data": data}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @app.route('/api/disponibilidade')
 def api_disponibilidade():
     """Retorna série temporal de disponibilidade (vagos, ocupados, cedidos, impedidos, reservados)"""
