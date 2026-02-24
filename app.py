@@ -1339,6 +1339,50 @@ def _get_perfil_range_context(conn, args):
     }
 
 
+def _get_perfil_range_context_all(conn, args):
+    predio = args.get('predio')
+    clinica = args.get('clinica')
+    periodo_inicio = args.get('periodo_inicio')
+    periodo_fim = args.get('periodo_fim')
+    mes = args.get('mes')
+
+    where_conditions = []
+    params = {}
+
+    if clinica:
+        where_conditions.append("nome_enfermaria = :clinica")
+        params['clinica'] = clinica
+
+    if predio == '1':
+        where_conditions.append("num_enf BETWEEN 111 AND 199")
+    elif predio == '2':
+        where_conditions.append("num_enf BETWEEN 200 AND 299")
+
+    if periodo_inicio and periodo_fim:
+        where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+        params['periodo_inicio'] = periodo_inicio
+        params['periodo_fim'] = periodo_fim
+    elif mes:
+        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
+        if last_year is None:
+            return None
+        where_conditions.append("MONTH(data_referencia) = :mes")
+        where_conditions.append("YEAR(data_referencia) = :last_year")
+        params['mes'] = mes
+        params['last_year'] = int(last_year)
+    else:
+        max_date = conn.execute(text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")).scalar()
+        if not max_date:
+            return None
+        where_conditions.append("data_referencia BETWEEN DATE_SUB(:max_date, INTERVAL 13 DAY) AND :max_date")
+        params['max_date'] = max_date
+
+    return {
+        "where": " AND ".join(where_conditions) if where_conditions else "1=1",
+        "params": params
+    }
+
+
 def _patient_profile_query(where_clause):
     return f"""
         SELECT
@@ -1675,40 +1719,283 @@ def api_perfil_paciente_export():
         return {"error": str(e)}, 500
 
 
+@app.route('/api/perfil_paciente/impedimentos-serie')
+def api_perfil_paciente_impedimentos_serie():
+    """Retorna série temporal da taxa de impedimentos por dia (%)"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            range_context = _get_perfil_range_context_all(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            sql_impedimentos = text(f"""
+                SELECT
+                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    COUNT(*) as total,
+                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' THEN 1 ELSE 0 END), 0) as impedidos
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']}
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            rows = conn.execute(sql_impedimentos, range_context['params']).mappings().all()
+
+            return jsonify({
+                "labels": [r['dia'] for r in rows],
+                "data": [round((int(r['impedidos']) / int(r['total'])) * 100, 1) if int(r['total']) > 0 else 0 for r in rows]
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/perfil_paciente/status-serie')
+def api_perfil_paciente_status_serie():
+    """Retorna série temporal de status de leitos (ocupado/livre/impedido/etc)"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            range_context = _get_perfil_range_context_all(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            sql_status = text(f"""
+                SELECT
+                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    COALESCE(SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END), 0) as livres,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
+                    COALESCE(SUM(CASE WHEN status_leito = 'CEDIDO' THEN 1 ELSE 0 END), 0) as cedidos,
+                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' THEN 1 ELSE 0 END), 0) as impedidos,
+                    COALESCE(SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END), 0) as reservados
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']}
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            rows = conn.execute(sql_status, range_context['params']).mappings().all()
+
+            return jsonify({
+                "labels": [r['dia'] for r in rows],
+                "datasets": [
+                    {"label": "Livres", "data": [int(r['livres']) for r in rows]},
+                    {"label": "Ocupados", "data": [int(r['ocupados']) for r in rows]},
+                    {"label": "Cedido", "data": [int(r['cedidos']) for r in rows]},
+                    {"label": "Impedidos", "data": [int(r['impedidos']) for r in rows]},
+                    {"label": "Reservados", "data": [int(r['reservados']) for r in rows]}
+                ]
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/perfil_paciente/impedimentos-top')
+def api_perfil_paciente_impedimentos_top():
+    """Retorna top motivos de impedimento no recorte"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            range_context = _get_perfil_range_context_all(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            where_clause = f"({range_context['where']}) AND (status_leito LIKE '%IMPEDIDO%' OR status_leito LIKE '%BLOQUEADO%')"
+            sql_top = text(f"""
+                SELECT COALESCE(NULLIF(TRIM(motivo_impedimento), ''), 'Sem motivo informado') as motivo,
+                       COUNT(*) as cnt
+                FROM historico_ocupacao_completo
+                WHERE {where_clause}
+                GROUP BY motivo
+                ORDER BY cnt DESC
+                LIMIT 10
+            """)
+            rows = conn.execute(sql_top, range_context['params']).mappings().all()
+
+            return jsonify({
+                "labels": [r['motivo'] for r in rows],
+                "data": [int(r['cnt']) for r in rows]
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/perfil_paciente/kpis-complementares')
+def api_perfil_paciente_kpis_complementares():
+    """Retorna KPIs complementares do perfil do paciente."""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            range_context = _get_perfil_range_context_all(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            sql_stats = text(f"""
+                SELECT
+                    COUNT(*) as total,
+                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' OR status_leito LIKE '%BLOQUEADO%' THEN 1 ELSE 0 END), 0) as impedidos,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' AND UPPER(TRIM(cronico)) IN ('SIM','S','1','TRUE','T','YES') THEN 1 ELSE 0 END), 0) as cronicos,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' AND NULLIF(TRIM(modo_ventilatorio), '') IS NOT NULL THEN 1 ELSE 0 END), 0) as ventilacao,
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' AND UPPER(TRIM(inserido_no_trs)) IN ('SIM','S','1','TRUE','T','YES') THEN 1 ELSE 0 END), 0) as trs
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']}
+            """)
+            stats = conn.execute(sql_stats, range_context['params']).mappings().fetchone()
+
+            sql_top_enf = text(f"""
+                SELECT COALESCE(NULLIF(TRIM(nome_enfermaria), ''), 'Sem clínica') as enfermaria,
+                       COUNT(*) as cnt
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']} AND status_leito = 'OCUPADO'
+                GROUP BY enfermaria
+                ORDER BY cnt DESC
+                LIMIT 5
+            """)
+            top_rows = conn.execute(sql_top_enf, range_context['params']).mappings().all()
+
+            total = int(stats['total'] or 0)
+            ocupados = int(stats['ocupados'] or 0)
+            impedidos = int(stats['impedidos'] or 0)
+            cronicos = int(stats['cronicos'] or 0)
+            ventilacao = int(stats['ventilacao'] or 0)
+            trs = int(stats['trs'] or 0)
+
+            return jsonify({
+                "impedidos_pct": round((impedidos / total) * 100, 1) if total > 0 else 0,
+                "top_enfermarias": [{"label": r['enfermaria'], "count": int(r['cnt'])} for r in top_rows],
+                "cronicos_pct": round((cronicos / ocupados) * 100, 1) if ocupados > 0 else 0,
+                "ventilacao_pct": round((ventilacao / ocupados) * 100, 1) if ocupados > 0 else 0,
+                "trs_pct": round((trs / ocupados) * 100, 1) if ocupados > 0 else 0
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/perfil_paciente/kpis-avancados')
+def api_perfil_paciente_kpis_avancados():
+    """Retorna KPIs avancados do perfil do paciente."""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            range_context = _get_perfil_range_context_all(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            sql_rot = text(f"""
+                SELECT
+                    COUNT(DISTINCT COALESCE(
+                        NULLIF(TRIM(cns_paciente), ''),
+                        NULLIF(TRIM(prontuario), ''),
+                        NULLIF(TRIM(aih_paciente), ''),
+                        NULLIF(TRIM(nome_paciente), ''),
+                        CONCAT('LEITO-', num_enf, '-', leito)
+                    )) as pacientes,
+                    COUNT(DISTINCT CONCAT(num_enf, '-', leito)) as leitos
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']} AND status_leito = 'OCUPADO'
+            """)
+            rot = conn.execute(sql_rot, range_context['params']).mappings().fetchone()
+
+            sql_motivo = text(f"""
+                SELECT
+                    COUNT(*) as total,
+                    COALESCE(SUM(CASE WHEN NULLIF(TRIM(situacao_motivo_permanencia), '') IS NOT NULL THEN 1 ELSE 0 END), 0) as com_motivo
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']} AND status_leito = 'OCUPADO'
+            """)
+            motivo = conn.execute(sql_motivo, range_context['params']).mappings().fetchone()
+
+            sql_reserva = text(f"""
+                SELECT
+                    AVG(TIMESTAMPDIFF(DAY, data_sol_reserva, data_internacao_leito)) as media_dias
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']}
+                  AND data_sol_reserva IS NOT NULL
+                  AND data_internacao_leito IS NOT NULL
+                  AND TIMESTAMPDIFF(DAY, data_sol_reserva, data_internacao_leito) >= 0
+            """)
+            reserva = conn.execute(sql_reserva, range_context['params']).scalar()
+
+            pacientes = int(rot['pacientes'] or 0)
+            leitos = int(rot['leitos'] or 0)
+            total = int(motivo['total'] or 0)
+            com_motivo = int(motivo['com_motivo'] or 0)
+
+            return jsonify({
+                "rotatividade": round((pacientes / leitos), 2) if leitos > 0 else 0,
+                "motivo_permanencia_pct": round((com_motivo / total) * 100, 1) if total > 0 else 0,
+                "tempo_medio_reserva": round(float(reserva), 1) if reserva is not None else None
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/perfil_paciente/ocupacao-heatmap')
+def api_perfil_paciente_ocupacao_heatmap():
+    """Retorna matriz de ocupacao por dia da semana x clinica (top 10 clinicas)."""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            range_context = _get_perfil_range_context(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            sql_heatmap = text(f"""
+                SELECT
+                    COALESCE(NULLIF(TRIM(nome_enfermaria), ''), 'Sem clínica') as clinica,
+                    DAYOFWEEK(data_referencia) as dow,
+                    COUNT(*) as cnt
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']}
+                GROUP BY clinica, dow
+            """)
+            rows = conn.execute(sql_heatmap, range_context['params']).mappings().all()
+
+            totals = {}
+            values = {}
+            for r in rows:
+                clinica = r['clinica']
+                totals[clinica] = totals.get(clinica, 0) + int(r['cnt'])
+                values.setdefault(clinica, {})[int(r['dow'])] = int(r['cnt'])
+
+            top_clinicas = [c for c, _ in sorted(totals.items(), key=lambda x: x[1], reverse=True)[:10]]
+            dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab']
+
+            matrix = []
+            max_val = 0
+            for clinica in top_clinicas:
+                row_vals = []
+                for i, _ in enumerate(dias, start=1):
+                    val = values.get(clinica, {}).get(i, 0)
+                    row_vals.append(val)
+                    if val > max_val:
+                        max_val = val
+                matrix.append(row_vals)
+
+            return jsonify({
+                "clinicas": top_clinicas,
+                "dias": dias,
+                "values": matrix,
+                "max": max_val
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @app.route('/perfil_paciente')
 def perfil_paciente():
     return render_template('perfil_paciente.html')
-
-    @app.route('/api/perfil_paciente/impedimentos-serie')
-    def api_perfil_paciente_impedimentos_serie():
-        """Retorna série temporal da taxa de impedimentos por dia (%)"""
-        if not db_status:
-            return {"error": "Banco não conectado"}, 500
-
-        try:
-            with engine.connect() as conn:
-                range_context = _get_perfil_range_context(conn, request.args)
-                if not range_context:
-                    return {"error": "Sem dados disponíveis"}, 404
-
-                sql_impedimentos = text(f"""
-                    SELECT
-                        DATE_FORMAT(data_referencia, '%d/%m') as dia,
-                        COUNT(*) as total,
-                        COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' THEN 1 ELSE 0 END), 0) as impedidos
-                    FROM historico_ocupacao_completo
-                    WHERE {range_context['where']}
-                    GROUP BY data_referencia
-                    ORDER BY data_referencia
-                """)
-                rows = conn.execute(sql_impedimentos, range_context['params']).mappings().all()
-
-                return jsonify({
-                    "labels": [r['dia'] for r in rows],
-                    "data": [round((int(r['impedidos']) / int(r['total'])) * 100, 1) if int(r['total']) > 0 else 0 for r in rows]
-                })
-        except Exception as e:
-            return {"error": str(e)}, 500
 
 # ROTA PARA O PAINEL (renderiza template estático)
 @app.route('/painel')

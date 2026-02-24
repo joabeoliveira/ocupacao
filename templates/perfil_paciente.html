@@ -183,6 +183,30 @@
             background: var(--bg-tertiary);
         }
 
+        .heatmap-container {
+            overflow-x: auto;
+        }
+
+        .heatmap-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .heatmap-table th,
+        .heatmap-table td {
+            padding: 0.5rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .heatmap-table th:first-child,
+        .heatmap-table td:first-child {
+            text-align: left;
+            white-space: nowrap;
+        }
+
         .pagination {
             display: flex;
             justify-content: center;
@@ -468,32 +492,58 @@
                     <h2 class="text-xl font-bold text-white mb-4"><i class="fas fa-layer-group mr-2"></i>Análises Adicionais</h2>
                     
                     <div class="flex gap-2 mb-4 flex-wrap">
-                        <button class="tab-button active" onclick="switchTab('tab-complementar', event)">
+                        <button class="tab-button active" onclick="switchTabWithLoad('tab-complementar', event)">
                             <i class="fas fa-chart-area mr-2"></i>Análises Complementares
                         </button>
-                        <button class="tab-button" onclick="switchTab('tab-avancado', event)">
+                        <button class="tab-button" onclick="switchTabWithLoad('tab-avancado', event)">
                             <i class="fas fa-flask mr-2"></i>Análises Avançadas
                         </button>
-
                     </div>
 
                     <!-- Tab: Complementar -->
                     <div id="tab-complementar" class="tab-content active">
-                        <div class="bg-blue-900/20 border border-blue-700 rounded-lg p-6 text-center text-blue-200">
+                        <div class="bg-blue-900/20 border border-blue-700 rounded-lg p-6 text-center text-blue-200 mb-6">
                             <i class="fas fa-info-circle mr-2"></i>
-                            Análises complementares serão implementadas no Sprint 2:
+                            Sprint 2 - Análises complementares em andamento:
                             <ul class="text-sm mt-3 space-y-1 text-left inline-block">
                                 <li>• Taxa de leitos impedidos no recorte</li>
+                                <li>• Status de leitos ao longo do tempo</li>
+                                <li>• Motivos de impedimento mais frequentes</li>
                                 <li>• Top enfermarias por ocupação de pacientes</li>
                                 <li>• % pacientes crônicos</li>
-                                <li>• Pacientes com suporte ventilatório</li>
-                                <li>• Pacientes com necessidade de TRS/diálise</li>
                             </ul>
                         </div>
-                    </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-red-500 card-hover border border-gray-700">
+                                <div class="text-gray-400 text-xs font-bold uppercase mb-1">Leitos Impedidos</div>
+                                <div class="text-2xl font-bold text-red-400" id="kpi-comp-impedidos">—</div>
+                                <div class="text-xs text-gray-500">% no recorte</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-indigo-500 card-hover border border-gray-700">
+                                <div class="text-gray-400 text-xs font-bold uppercase mb-1">Top Enfermaria</div>
+                                <div class="text-2xl font-bold text-indigo-400" id="kpi-comp-enfermaria">—</div>
+                                <div class="text-xs text-gray-500" id="kpi-comp-enfermaria-sub">—</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-green-500 card-hover border border-gray-700">
+                                <div class="text-gray-400 text-xs font-bold uppercase mb-1">Pacientes Crônicos</div>
+                                <div class="text-2xl font-bold text-green-400" id="kpi-comp-cronico">—</div>
+                                <div class="text-xs text-gray-500">% ocupados</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-blue-500 card-hover border border-gray-700">
+                                <div class="text-gray-400 text-xs font-bold uppercase mb-1">Ventilação</div>
+                                <div class="text-2xl font-bold text-blue-400" id="kpi-comp-ventilacao">—</div>
+                                <div class="text-xs text-gray-500">% ocupados</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-purple-500 card-hover border border-gray-700">
+                                <div class="text-gray-400 text-xs font-bold uppercase mb-1">TRS/Diálise</div>
+                                <div class="text-2xl font-bold text-purple-400" id="kpi-comp-trs">—</div>
+                                <div class="text-xs text-gray-500">% ocupados</div>
+                            </div>
+                        </div>
 
                         <!-- Complementar Charts Grid -->
-                        <div class="grid grid-cols-1 gap-6 mb-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                             <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
                                 <h3 class="font-bold text-white mb-4 text-lg">
                                     <i class="fas fa-ban mr-2 text-red-400"></i>
@@ -503,10 +553,53 @@
                                     <canvas id="chart-impedimentos-serie"></canvas>
                                 </div>
                             </div>
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                <h3 class="font-bold text-white mb-4 text-lg">
+                                    <i class="fas fa-layer-group mr-2 text-blue-400"></i>
+                                    Status de Leitos por Dia
+                                </h3>
+                                <div style="height: 300px; position: relative;">
+                                    <canvas id="chart-status-serie"></canvas>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                                <h3 class="font-bold text-white mb-4 text-lg">
+                                    <i class="fas fa-exclamation-triangle mr-2 text-orange-400"></i>
+                                    Top 10 Motivos de Impedimento
+                                </h3>
+                                <div style="height: 300px; position: relative;">
+                                    <canvas id="chart-impedimentos-top"></canvas>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                                <h3 class="font-bold text-white mb-4 text-lg">
+                                    <i class="fas fa-th mr-2 text-blue-400"></i>
+                                    Ocupacao por Dia da Semana x Clinica
+                                </h3>
+                                <div id="heatmap-container" class="heatmap-container"></div>
+                            </div>
                         </div>
+                    </div>
 
                     <!-- Tab: Avançado -->
                     <div id="tab-avancado" class="tab-content">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-cyan-500 card-hover border border-gray-700">
+                                <div class="text-gray-400 text-xs font-bold uppercase mb-1">Rotatividade/Leito</div>
+                                <div class="text-2xl font-bold text-cyan-400" id="kpi-adv-rotatividade">—</div>
+                                <div class="text-xs text-gray-500">pacientes por leito</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-yellow-500 card-hover border border-gray-700">
+                                <div class="text-gray-400 text-xs font-bold uppercase mb-1">Motivo Permanência</div>
+                                <div class="text-2xl font-bold text-yellow-400" id="kpi-adv-motivo">—</div>
+                                <div class="text-xs text-gray-500">% informado</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-orange-500 card-hover border border-gray-700">
+                                <div class="text-gray-400 text-xs font-bold uppercase mb-1">Tempo Reserva</div>
+                                <div class="text-2xl font-bold text-orange-400" id="kpi-adv-reserva">—</div>
+                                <div class="text-xs text-gray-500">dias (media)</div>
+                            </div>
+                        </div>
                         <div class="bg-purple-900/20 border border-purple-700 rounded-lg p-6 text-center text-purple-200">
                             <i class="fas fa-flask mr-2"></i>
                             Análises avançadas serão implementadas no Sprint 3 (processamento assíncrono):
@@ -624,6 +717,10 @@
                 switchTab(tabName, event);
                 if (tabName === 'tab-complementar') {
                     await loadComplementaryCharts();
+                    await loadComplementaryKpis();
+                }
+                if (tabName === 'tab-avancado') {
+                    await loadAdvancedKpis();
                 }
             }
 
@@ -661,6 +758,10 @@
 
                 // Render Charts
                 renderCharts(data);
+
+                // Load complementary charts (default tab)
+                await loadComplementaryCharts();
+                await loadComplementaryKpis();
 
                 // Load Table
                 await loadTable();
@@ -886,18 +987,19 @@
             });
         }
 
-            // Complementary Charts (Sprint 2)
-            async function loadComplementaryCharts() {
-                try {
-                    // Carrega série de impedimentos
-                    const qs = new URLSearchParams(currentFilters).toString();
-                    const res = await fetch('/api/perfil_paciente/impedimentos-serie' + (qs ? ('?' + qs) : ''));
-                    const json = await res.json();
-                    if (json.error) { console.error('Erro impedimentos:', json.error); return; }
+        // Complementary Charts (Sprint 2)
+        async function loadComplementaryCharts() {
+            try {
+                const colors = getChartColors();
+                const qs = new URLSearchParams(currentFilters).toString();
 
-                    const ctx = document.getElementById('chart-impedimentos-serie')?.getContext('2d');
-                    if (!ctx) return; // Skip if element not visible
+                // Impedimentos (serie)
+                const res = await fetch('/api/perfil_paciente/impedimentos-serie' + (qs ? ('?' + qs) : ''));
+                const json = await res.json();
+                if (json.error) { console.error('Erro impedimentos:', json.error); return; }
 
+                const ctx = document.getElementById('chart-impedimentos-serie')?.getContext('2d');
+                if (ctx) {
                     if (chartsInstances['chart-impedimentos-serie']) {
                         chartsInstances['chart-impedimentos-serie'].destroy();
                     }
@@ -927,10 +1029,174 @@
                             }
                         }
                     });
-                } catch (e) {
-                    console.error('Erro ao carregar gráficos complementares:', e);
                 }
+
+                // Status de leitos (serie)
+                const resStatus = await fetch('/api/perfil_paciente/status-serie' + (qs ? ('?' + qs) : ''));
+                const jsonStatus = await resStatus.json();
+                if (jsonStatus.error) { console.error('Erro status:', jsonStatus.error); return; }
+
+                const ctxStatus = document.getElementById('chart-status-serie')?.getContext('2d');
+                if (ctxStatus) {
+                    if (chartsInstances['chart-status-serie']) {
+                        chartsInstances['chart-status-serie'].destroy();
+                    }
+
+                    const statusColors = {
+                        Livres: { border: 'rgba(34,197,94,1)', bg: 'rgba(34,197,94,0.15)' },
+                        Ocupados: { border: 'rgba(59,130,246,1)', bg: 'rgba(59,130,246,0.15)' },
+                        Cedido: { border: 'rgba(249,115,22,1)', bg: 'rgba(249,115,22,0.15)' },
+                        Impedidos: { border: 'rgba(239,68,68,1)', bg: 'rgba(239,68,68,0.15)' },
+                        Reservados: { border: 'rgba(148,163,184,1)', bg: 'rgba(148,163,184,0.15)' }
+                    };
+
+                    chartsInstances['chart-status-serie'] = new Chart(ctxStatus, {
+                        type: 'line',
+                        data: {
+                            labels: jsonStatus.labels || [],
+                            datasets: (jsonStatus.datasets || []).map(ds => {
+                                const palette = statusColors[ds.label] || { border: colors.chartBlue, bg: 'rgba(11,114,217,0.15)' };
+                                return {
+                                    ...ds,
+                                    fill: true,
+                                    stack: 'status',
+                                    tension: 0.3,
+                                    borderWidth: 2,
+                                    borderColor: palette.border,
+                                    backgroundColor: palette.bg
+                                };
+                            })
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            scales: {
+                                x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                                y: { stacked: true, ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                            }
+                        }
+                    });
+                }
+
+                // Top motivos de impedimento
+                const resTop = await fetch('/api/perfil_paciente/impedimentos-top' + (qs ? ('?' + qs) : ''));
+                const jsonTop = await resTop.json();
+                if (jsonTop.error) { console.error('Erro motivos impedimento:', jsonTop.error); return; }
+
+                const ctxTop = document.getElementById('chart-impedimentos-top')?.getContext('2d');
+                if (ctxTop) {
+                    if (chartsInstances['chart-impedimentos-top']) {
+                        chartsInstances['chart-impedimentos-top'].destroy();
+                    }
+
+                    chartsInstances['chart-impedimentos-top'] = new Chart(ctxTop, {
+                        type: 'bar',
+                        data: {
+                            labels: jsonTop.labels || [],
+                            datasets: [{
+                                label: 'Ocorrencias',
+                                data: jsonTop.data || [],
+                                backgroundColor: colors.chartOrange
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            scales: {
+                                x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                                y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                            },
+                            indexAxis: 'y'
+                        }
+                    });
+                }
+
+                // Heatmap de ocupacao por dia x clinica
+                const resHeat = await fetch('/api/perfil_paciente/ocupacao-heatmap' + (qs ? ('?' + qs) : ''));
+                const jsonHeat = await resHeat.json();
+                if (jsonHeat.error) { console.error('Erro heatmap:', jsonHeat.error); return; }
+
+                const heatContainer = document.getElementById('heatmap-container');
+                if (heatContainer) {
+                    heatContainer.innerHTML = '';
+                    const table = document.createElement('table');
+                    table.className = 'heatmap-table';
+
+                    const thead = document.createElement('thead');
+                    const headRow = document.createElement('tr');
+                    const emptyTh = document.createElement('th');
+                    emptyTh.textContent = 'Clinica';
+                    headRow.appendChild(emptyTh);
+                    (jsonHeat.dias || []).forEach(d => {
+                        const th = document.createElement('th');
+                        th.textContent = d;
+                        headRow.appendChild(th);
+                    });
+                    thead.appendChild(headRow);
+                    table.appendChild(thead);
+
+                    const tbody = document.createElement('tbody');
+                    const maxVal = jsonHeat.max || 1;
+                    (jsonHeat.clinicas || []).forEach((clinica, idx) => {
+                        const tr = document.createElement('tr');
+                        const nameTd = document.createElement('td');
+                        nameTd.textContent = clinica;
+                        tr.appendChild(nameTd);
+
+                        const rowVals = (jsonHeat.values || [])[idx] || [];
+                        rowVals.forEach(val => {
+                            const td = document.createElement('td');
+                            const intensity = maxVal > 0 ? (val / maxVal) : 0;
+                            const alpha = 0.15 + (0.65 * intensity);
+                            td.style.backgroundColor = `rgba(59,130,246,${alpha.toFixed(2)})`;
+                            td.textContent = val;
+                            tr.appendChild(td);
+                        });
+                        tbody.appendChild(tr);
+                    });
+                    table.appendChild(tbody);
+                    heatContainer.appendChild(table);
+                }
+            } catch (e) {
+                console.error('Erro ao carregar gráficos complementares:', e);
             }
+        }
+
+        async function loadComplementaryKpis() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/perfil_paciente/kpis-complementares' + (qs ? ('?' + qs) : ''));
+                const json = await res.json();
+                if (json.error) { console.error('Erro KPIs complementares:', json.error); return; }
+
+                document.getElementById('kpi-comp-impedidos').textContent = `${json.impedidos_pct ?? 0}%`;
+                const top = (json.top_enfermarias || [])[0];
+                document.getElementById('kpi-comp-enfermaria').textContent = top ? top.label : '—';
+                document.getElementById('kpi-comp-enfermaria-sub').textContent = top ? `${top.count} pac.` : '—';
+                document.getElementById('kpi-comp-cronico').textContent = `${json.cronicos_pct ?? 0}%`;
+                document.getElementById('kpi-comp-ventilacao').textContent = `${json.ventilacao_pct ?? 0}%`;
+                document.getElementById('kpi-comp-trs').textContent = `${json.trs_pct ?? 0}%`;
+            } catch (e) {
+                console.error('Erro ao carregar KPIs complementares:', e);
+            }
+        }
+
+        async function loadAdvancedKpis() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/perfil_paciente/kpis-avancados' + (qs ? ('?' + qs) : ''));
+                const json = await res.json();
+                if (json.error) { console.error('Erro KPIs avancados:', json.error); return; }
+
+                document.getElementById('kpi-adv-rotatividade').textContent = json.rotatividade ?? 0;
+                document.getElementById('kpi-adv-motivo').textContent = `${json.motivo_permanencia_pct ?? 0}%`;
+                document.getElementById('kpi-adv-reserva').textContent = json.tempo_medio_reserva !== null ? `${json.tempo_medio_reserva}d` : '—';
+            } catch (e) {
+                console.error('Erro ao carregar KPIs avancados:', e);
+            }
+        }
 
         // Load Table Data
         async function loadTable() {
