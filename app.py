@@ -703,6 +703,47 @@ def disponibilidade():
     return render_template('disponibilidade.html')
 
 
+@app.route('/perfil_paciente/sexo')
+def perfil_paciente_sexo():
+    """Renderiza a subpágina de Perfil do Paciente — Sexo"""
+    return render_template('perfil_paciente_sexo.html')
+
+
+@app.route('/api/perfil_paciente/sexo')
+def api_perfil_paciente_sexo():
+    """Retorna contagem de pacientes por sexo para a data selecionada (ou última disponível)."""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        selected_date = request.args.get('data')
+        with engine.connect() as conn:
+            if not selected_date:
+                sql_last = text("SELECT data_referencia FROM historico_ocupacao_completo ORDER BY data_referencia DESC LIMIT 1")
+                result = conn.execute(sql_last).scalar()
+                if result:
+                    selected_date = result
+                else:
+                    return {"error": "Sem dados disponíveis"}, 404
+
+            sql = text("""
+                SELECT COALESCE(NULLIF(TRIM(sexo), ''), 'Não informado') as sexo,
+                       COUNT(*) as cnt
+                FROM historico_ocupacao_completo
+                WHERE data_referencia = :data
+                GROUP BY sexo
+                ORDER BY cnt DESC
+            """)
+            rows = conn.execute(sql, {"data": selected_date}).mappings().all()
+
+            labels = [r['sexo'] for r in rows]
+            data = [int(r['cnt']) for r in rows]
+
+            return {"labels": labels, "data": data}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @app.route('/api/disponibilidade')
 def api_disponibilidade():
     """Retorna série temporal de disponibilidade (vagos, ocupados, cedidos, impedidos, reservados)"""

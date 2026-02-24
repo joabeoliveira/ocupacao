@@ -169,12 +169,17 @@
                 <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 hidden animate-fade-in border border-gray-700">
                     <h3 class="text-lg font-bold text-white mb-4"><i class="fas fa-filter mr-2 text-blue-400"></i>Filtros Avançados</h3>
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-building mr-1"></i>Prédio</label>
-                            <select id="filter-predio" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">Todos</option><option value="1">Prédio 1</option><option value="2">Prédio 2</option>
-                            </select>
-                        </div>
+                        <li>
+                            <div class="px-6 py-3">
+                                <a href="/perfil_paciente" class="flex items-center hover:bg-blue-800 rounded transition">
+                                    <i class="fas fa-user-injured mr-3"></i>
+                                    Perfil do Paciente
+                                </a>
+                                <ul class="mt-2 ml-8 space-y-1">
+                                    <li><a href="/perfil_paciente/sexo" class="text-sm text-gray-300 hover:text-white">Sexo</a></li>
+                                </ul>
+                            </div>
+                        </li>
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-calendar-alt mr-1"></i>Período Inicial</label>
                             <input type="date" id="filter-periodo-inicio" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
