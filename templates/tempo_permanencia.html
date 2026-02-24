@@ -329,6 +329,35 @@
     </div>
 
 <script>
+    function initDataLabels() {
+        if (typeof Chart === 'undefined' || typeof ChartDataLabels === 'undefined') return;
+        Chart.register(ChartDataLabels);
+
+        function formatDataLabel(value, context) {
+            if (value === null || value === undefined) return '';
+            const label = (context.dataset && context.dataset.label ? context.dataset.label : '').toLowerCase();
+            const numeric = typeof value === 'number' ? value : Number(value);
+            const isPercent = label.includes('taxa') || label.includes('ocupação') || label.includes('%');
+            const shown = Number.isFinite(numeric) ? (Number.isInteger(numeric) ? numeric : numeric.toFixed(1)) : value;
+            return isPercent ? `${shown}%` : `${shown}`;
+        }
+
+        Chart.defaults.plugins.datalabels = {
+            color: '#E5E7EB',
+            font: { size: 10, weight: '600' },
+            clamp: true,
+            clip: true,
+            anchor: function(context) {
+                return context.chart.options.indexAxis === 'y' ? 'end' : 'end';
+            },
+            align: function(context) {
+                return context.chart.options.indexAxis === 'y' ? 'right' : 'top';
+            },
+            formatter: formatDataLabel
+        };
+    }
+
+    initDataLabels();
 let datalabelsRegistered = false;
 if (!datalabelsRegistered && typeof ChartDataLabels !== 'undefined') {
     Chart.register(ChartDataLabels);
@@ -481,7 +510,7 @@ async function loadData(){
         const values = Object.values(json.histogram);
         const ctx = document.getElementById('histogramChart').getContext('2d');
         if(histChart) histChart.destroy();
-        histChart = new Chart(ctx, {type:'bar', data:{labels, datasets:[{label:'Pacientes', data:values, backgroundColor:'rgba(59,130,246,0.8)'}]}, options:{responsive:true, maintainAspectRatio:false}});
+        histChart = new Chart(ctx, {type:'bar', data:{labels, datasets:[{label:'Pacientes', data:values, backgroundColor:'rgba(59,130,246,0.8)'}]}, options:{responsive:true, maintainAspectRatio:false, plugins:{datalabels:{enabled:true}}}});
 
         // Clinica chart: count clinic occurrences from full patient list (client-side aggregation for top 10)
         // Ideally backend should return aggregated clinic stats; here we aggregate from paginated results as MVP
@@ -494,7 +523,7 @@ async function loadData(){
         const clinVals = sortedClinics.map(c=>c[1]);
         const cctx = document.getElementById('clinicaChart').getContext('2d');
         if(clinicaChart) clinicaChart.destroy();
-        clinicaChart = new Chart(cctx, {type:'bar', data:{labels:clinLabels, datasets:[{label:'Longa permanência', data:clinVals, backgroundColor:'rgba(16,185,129,0.8)'}]}, options:{responsive:true, maintainAspectRatio:false, indexAxis:'y'}});
+        clinicaChart = new Chart(cctx, {type:'bar', data:{labels:clinLabels, datasets:[{label:'Longa permanência', data:clinVals, backgroundColor:'rgba(16,185,129,0.8)'}]}, options:{responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{datalabels:{enabled:true}}}});
 
         // Table
         const tbody = document.getElementById('patients-body'); tbody.innerHTML='';

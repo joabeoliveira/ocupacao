@@ -6,30 +6,6 @@
     <title>Perfil do Paciente - NIR Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        Chart.register(ChartDataLabels);
-
-        function formatDataLabel(value, context) {
-            if (value === null || value === undefined) return '';
-            const label = (context.dataset && context.dataset.label ? context.dataset.label : '').toLowerCase();
-            const numeric = typeof value === 'number' ? value : Number(value);
-            const isPercent = label.includes('taxa') || label.includes('ocupação') || label.includes('%');
-            const shown = Number.isFinite(numeric) ? (Number.isInteger(numeric) ? numeric : numeric.toFixed(1)) : value;
-            return isPercent ? `${shown}%` : `${shown}`;
-        }
-
-        Chart.defaults.plugins.datalabels = {
-            color: '#E5E7EB',
-            font: { size: 10, weight: '600' },
-            clamp: true,
-            clip: true,
-            anchor: function(context) {
-                return context.chart.options.indexAxis === 'y' ? 'end' : 'end';
-            },
-            align: function(context) {
-                return context.chart.options.indexAxis === 'y' ? 'right' : 'top';
-            },
-            formatter: formatDataLabel
-        };
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -684,6 +660,36 @@
 
     <!-- CHART.JS INSTANCES -->
     <script>
+        function initDataLabels() {
+            if (typeof Chart === 'undefined' || typeof ChartDataLabels === 'undefined') return;
+            Chart.register(ChartDataLabels);
+
+            function formatDataLabel(value, context) {
+                if (value === null || value === undefined) return '';
+                const label = (context.dataset && context.dataset.label ? context.dataset.label : '').toLowerCase();
+                const numeric = typeof value === 'number' ? value : Number(value);
+                const isPercent = label.includes('taxa') || label.includes('ocupação') || label.includes('%');
+                const shown = Number.isFinite(numeric) ? (Number.isInteger(numeric) ? numeric : numeric.toFixed(1)) : value;
+                return isPercent ? `${shown}%` : `${shown}`;
+            }
+
+            Chart.defaults.plugins.datalabels = {
+                color: '#E5E7EB',
+                font: { size: 10, weight: '600' },
+                clamp: true,
+                clip: true,
+                anchor: function(context) {
+                    return context.chart.options.indexAxis === 'y' ? 'end' : 'end';
+                },
+                align: function(context) {
+                    return context.chart.options.indexAxis === 'y' ? 'right' : 'top';
+                },
+                formatter: formatDataLabel
+            };
+        }
+
+        initDataLabels();
+
         let chartsInstances = {};
         let currentPage = 1;
         let currentFilters = {};
@@ -921,7 +927,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: colors.chartText } } },
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
                     scales: {
                         x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                         y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -943,7 +952,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: colors.chartText } } }
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    }
                 }
             });
 
@@ -962,7 +974,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: colors.chartText } } },
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
                     scales: {
                         x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                         y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -985,7 +1000,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: colors.chartText } } },
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
                     scales: {
                         x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                         y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -1010,7 +1028,10 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     indexAxis: 'y',
-                    plugins: { legend: { labels: { color: colors.chartText } } },
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
                     scales: {
                         x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                         y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -1035,7 +1056,10 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     indexAxis: 'y',
-                    plugins: { legend: { labels: { color: colors.chartText } } },
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
                     scales: {
                         x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                         y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -1079,7 +1103,10 @@
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            plugins: {
+                                legend: { labels: { color: colors.chartText } },
+                                datalabels: { enabled: true }
+                            },
                             scales: {
                                 x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                                 y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid }, max: 100 }
@@ -1127,7 +1154,10 @@
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            plugins: {
+                                legend: { labels: { color: colors.chartText } },
+                                datalabels: { enabled: true }
+                            },
                             scales: {
                                 x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                                 y: { stacked: true, ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -1160,7 +1190,10 @@
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            plugins: {
+                                legend: { labels: { color: colors.chartText } },
+                                datalabels: { enabled: true }
+                            },
                             scales: {
                                 x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                                 y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -1285,7 +1318,10 @@
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            plugins: {
+                                legend: { labels: { color: colors.chartText } },
+                                datalabels: { enabled: true }
+                            },
                             scales: {
                                 x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                                 y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -1319,7 +1355,10 @@
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            plugins: {
+                                legend: { labels: { color: colors.chartText } },
+                                datalabels: { enabled: true }
+                            },
                             scales: {
                                 x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                                 y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
@@ -1350,7 +1389,10 @@
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            plugins: {
+                                legend: { labels: { color: colors.chartText } },
+                                datalabels: { enabled: true }
+                            },
                             scales: {
                                 x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
                                 y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }

@@ -27,6 +27,37 @@
         </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script>
+        function initDataLabels() {
+            if (typeof Chart === 'undefined' || typeof ChartDataLabels === 'undefined') return;
+            Chart.register(ChartDataLabels);
+
+            function formatDataLabel(value, context) {
+                if (value === null || value === undefined) return '';
+                const label = (context.dataset && context.dataset.label ? context.dataset.label : '').toLowerCase();
+                const numeric = typeof value === 'number' ? value : Number(value);
+                const isPercent = label.includes('taxa') || label.includes('ocupação') || label.includes('%');
+                const shown = Number.isFinite(numeric) ? (Number.isInteger(numeric) ? numeric : numeric.toFixed(1)) : value;
+                return isPercent ? `${shown}%` : `${shown}`;
+            }
+
+            Chart.defaults.plugins.datalabels = {
+                color: '#E5E7EB',
+                font: { size: 10, weight: '600' },
+                clamp: true,
+                clip: true,
+                anchor: function(context) {
+                    return context.chart.options.indexAxis === 'y' ? 'end' : 'end';
+                },
+                align: function(context) {
+                    return context.chart.options.indexAxis === 'y' ? 'right' : 'top';
+                },
+                formatter: formatDataLabel
+            };
+        }
+
+        initDataLabels();
+    </script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         /* Variáveis de tema */
@@ -309,7 +340,7 @@
             const json = await res.json(); if (json.error) { console.error(json.error); return; }
             const ctx = document.getElementById('dispChart').getContext('2d'); if (dispChart) dispChart.destroy();
             const datasets = json.datasets.map(ds => Object.assign({ tension:0.25, pointRadius:2, yAxisID:'y' }, ds));
-            dispChart = new Chart(ctx, { data: { labels: json.labels, datasets: datasets }, options: { responsive:true, maintainAspectRatio:false, scales:{ x:{stacked:true}, y:{stacked:true, beginAtZero:true} }, plugins:{ legend:{ position:'top' } } } });
+            dispChart = new Chart(ctx, { data: { labels: json.labels, datasets: datasets }, options: { responsive:true, maintainAspectRatio:false, scales:{ x:{stacked:true}, y:{stacked:true, beginAtZero:true} }, plugins:{ legend:{ position:'top' }, datalabels:{ enabled:true } } } });
             // load impediments pie chart after disponibilidade data (respects currentFilters)
             loadImpedimentosPieChart();
         } catch(err){ console.error('Erro carregando disponibilidade:', err); }
@@ -331,7 +362,7 @@
             impedimentosPieInst = new Chart(ctx, {
                 type: 'pie',
                 data: { labels: percentLabels, datasets: [{ data: data, backgroundColor: ['#ef4444','#f97316','#f59e0b','#facc15','#84cc16','#22c55e','#06b6d4','#3b82f6','#7c3aed','#ec4899'] }] },
-                options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ color: getComputedStyle(document.documentElement).getPropertyValue('--chart-text') || '#ddd' } }, tooltip:{ callbacks:{ label: function(context){ const val = context.parsed; const pct = ((val/total)*100).toFixed(1); return `${context.label}: ${val} (${pct}%)`; } } } } }
+                options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ color: getComputedStyle(document.documentElement).getPropertyValue('--chart-text') || '#ddd' } }, datalabels:{ enabled:true }, tooltip:{ callbacks:{ label: function(context){ const val = context.parsed; const pct = ((val/total)*100).toFixed(1); return `${context.label}: ${val} (${pct}%)`; } } } } }
             });
         }catch(e){ console.error('Erro ao carregar impedimentos (disponibilidade):', e); }
     }
