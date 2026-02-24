@@ -701,8 +701,22 @@
             }
         }
 
+        // Get Chart Colors from CSS Variables
+        function getChartColors() {
+            const root = document.documentElement.style;
+            const computed = getComputedStyle(document.documentElement);
+            return {
+                chartBlue: computed.getPropertyValue('--chart-blue').trim() || 'rgba(11, 114, 217, 0.85)',
+                chartGreen: computed.getPropertyValue('--chart-green').trim() || 'rgba(22, 163, 74, 0.85)',
+                chartOrange: computed.getPropertyValue('--chart-orange').trim() || 'rgba(249, 115, 22, 0.85)',
+                chartText: computed.getPropertyValue('--chart-text').trim() || '#e6eef8',
+                chartGrid: computed.getPropertyValue('--chart-grid').trim() || 'rgba(255, 255, 255, 0.06)'
+            };
+        }
+
         // Render Charts
         function renderCharts(data) {
+            const colors = getChartColors();
             // Destroy existing charts
             Object.values(chartsInstances).forEach(chart => {
                 if (chart) chart.destroy();
@@ -718,7 +732,7 @@
                     datasets: [{
                         label: 'Pacientes Ativos',
                         data: data.serie_pacientes?.data || [],
-                        borderColor: 'var(--chart-blue)',
+                        borderColor: colors.chartBlue,
                         backgroundColor: 'rgba(11, 114, 217, 0.1)',
                         tension: 0.4,
                         fill: true
@@ -727,10 +741,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: 'var(--chart-text)' } } },
+                    plugins: { legend: { labels: { color: colors.chartText } } },
                     scales: {
-                        x: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } },
-                        y: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } }
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
                     }
                 }
             });
@@ -749,7 +763,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: 'var(--chart-text)' } } }
+                    plugins: { legend: { labels: { color: colors.chartText } } }
                 }
             });
 
@@ -762,16 +776,16 @@
                     datasets: [{
                         label: 'Pacientes',
                         data: data.faixa_etaria?.data || [],
-                        backgroundColor: 'var(--chart-green)'
+                        backgroundColor: colors.chartGreen
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: 'var(--chart-text)' } } },
+                    plugins: { legend: { labels: { color: colors.chartText } } },
                     scales: {
-                        x: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } },
-                        y: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } }
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
                     }
                 }
             });
@@ -785,16 +799,16 @@
                     datasets: [{
                         label: 'Pacientes',
                         data: data.hist_permanencia?.data || [],
-                        backgroundColor: 'var(--chart-orange)'
+                        backgroundColor: colors.chartOrange
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: 'var(--chart-text)' } } },
+                    plugins: { legend: { labels: { color: colors.chartText } } },
                     scales: {
-                        x: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } },
-                        y: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } }
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
                     }
                 }
             });
@@ -809,17 +823,17 @@
                     datasets: [{
                         label: 'Pacientes',
                         data: (data.top_clinicas?.data || []).slice(0, 10),
-                        backgroundColor: 'var(--chart-blue)'
+                        backgroundColor: colors.chartBlue
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     indexAxis: 'y',
-                    plugins: { legend: { labels: { color: 'var(--chart-text)' } } },
+                    plugins: { legend: { labels: { color: colors.chartText } } },
                     scales: {
-                        x: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } },
-                        y: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } }
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
                     }
                 }
             });
@@ -834,17 +848,17 @@
                     datasets: [{
                         label: 'Dias Médios',
                         data: (data.permanencia_clinica?.data || []).slice(0, 10),
-                        backgroundColor: 'var(--chart-green)'
+                        backgroundColor: colors.chartGreen
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     indexAxis: 'y',
-                    plugins: { legend: { labels: { color: 'var(--chart-text)' } } },
+                    plugins: { legend: { labels: { color: colors.chartText } } },
                     scales: {
-                        x: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } },
-                        y: { ticks: { color: 'var(--chart-text)' }, grid: { color: 'var(--chart-grid)' } }
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
                     }
                 }
             });
