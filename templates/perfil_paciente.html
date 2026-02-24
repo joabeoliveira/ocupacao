@@ -63,9 +63,9 @@
         }
 
         input, select {
-            background-color: #FFFFFF !important;
-            color: #111827 !important;
-            border-color: #D1D5DB !important;
+            background-color: #111827 !important;
+            color: #e6eef8 !important;
+            border-color: #374151 !important;
         }
 
         .sidebar {
@@ -105,41 +105,12 @@
             box-shadow: 0 8px 16px rgba(0,0,0,0.1);
         }
 
-        .kpi-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            text-align: center;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
-        .kpi-value {
-            font-size: 1.875rem;
-            font-weight: bold;
-            color: #0b72d9;
-            margin-top: 0.75rem;
-        }
-
-        .kpi-label {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .chart-container {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .chart-title {
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 1rem;
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
         }
 
         .tab-button {
@@ -306,12 +277,12 @@
                 </nav>
 
                 <!-- FILTERS PANEL -->
-                <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 border border-gray-700 hidden">
+                <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 border border-gray-700 hidden animate-fade-in">
                     <h3 class="text-lg font-bold text-white mb-4"><i class="fas fa-filter mr-2 text-blue-400"></i>Filtros</h3>
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Prédio</label>
-                            <select id="filter-predio" class="w-full px-3 py-2 rounded-lg border">
+                            <select id="filter-predio" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
                                 <option value="">Todos</option>
                                 <option value="1">Prédio 1</option>
                                 <option value="2">Prédio 2</option>
@@ -319,18 +290,18 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Clínica</label>
-                            <input type="text" id="filter-clinica" placeholder="Nome da clínica" class="w-full px-3 py-2 rounded-lg border">
+                            <input type="text" id="filter-clinica" placeholder="Nome da clínica" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Data Referência</label>
-                            <input type="date" id="filter-periodo-fim" class="w-full px-3 py-2 rounded-lg border">
+                            <input type="date" id="filter-periodo-fim" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Mês (YYYY-MM)</label>
-                            <input type="month" id="filter-mes" class="w-full px-3 py-2 rounded-lg border">
+                            <input type="month" id="filter-mes" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div class="flex items-end">
-                            <button onclick="applyFilters()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition"><i class="fas fa-check mr-2"></i>Aplicar</button>
+                            <button onclick="applyFilters()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition font-semibold"><i class="fas fa-check mr-2"></i>Aplicar</button>
                         </div>
                     </div>
                 </div>
@@ -343,38 +314,78 @@
                 <!-- KPI CARDS (CORE LAYER) -->
                 <div id="kpi-section" class="hidden">
                     <h2 class="text-xl font-bold text-white mb-4"><i class="fas fa-chart-bar mr-2"></i>Resumo Executivo</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <div class="kpi-card card-hover">
-                            <div class="kpi-label">Pacientes Únicos</div>
-                            <div class="kpi-value" id="kpi-pacientes">—</div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 animate-fade-in">
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-blue-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">Pacientes Únicos</div>
+                                    <div class="text-4xl font-bold text-blue-400" id="kpi-pacientes">—</div>
+                                </div>
+                                <div class="text-blue-500 text-3xl"><i class="fas fa-user-injured"></i></div>
+                            </div>
                         </div>
-                        <div class="kpi-card card-hover">
-                            <div class="kpi-label">Idade Média</div>
-                            <div class="kpi-value" id="kpi-idade-media">—</div>
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-green-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">Idade Média</div>
+                                    <div class="text-4xl font-bold text-green-400" id="kpi-idade-media">—</div>
+                                </div>
+                                <div class="text-green-500 text-3xl"><i class="fas fa-birthday-cake"></i></div>
+                            </div>
                         </div>
-                        <div class="kpi-card card-hover">
-                            <div class="kpi-label">Idade Mediana</div>
-                            <div class="kpi-value" id="kpi-idade-mediana">—</div>
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-yellow-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">Idade Mediana</div>
+                                    <div class="text-4xl font-bold text-yellow-400" id="kpi-idade-mediana">—</div>
+                                </div>
+                                <div class="text-yellow-500 text-3xl"><i class="fas fa-chart-pie"></i></div>
+                            </div>
                         </div>
-                        <div class="kpi-card card-hover">
-                            <div class="kpi-label">Tempo Médio (dias)</div>
-                            <div class="kpi-value" id="kpi-tempo-medio">—</div>
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-purple-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">Tempo Médio (dias)</div>
+                                    <div class="text-4xl font-bold text-purple-400" id="kpi-tempo-medio">—</div>
+                                </div>
+                                <div class="text-purple-500 text-3xl"><i class="fas fa-hourglass-half"></i></div>
+                            </div>
                         </div>
-                        <div class="kpi-card card-hover">
-                            <div class="kpi-label">Tempo Mediano (dias)</div>
-                            <div class="kpi-value" id="kpi-tempo-mediano">—</div>
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-red-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">Tempo Mediano (dias)</div>
+                                    <div class="text-4xl font-bold text-red-400" id="kpi-tempo-mediano">—</div>
+                                </div>
+                                <div class="text-red-500 text-3xl"><i class="fas fa-calendar-days"></i></div>
+                            </div>
                         </div>
-                        <div class="kpi-card card-hover">
-                            <div class="kpi-label">% Longa Permanência</div>
-                            <div class="kpi-value" id="kpi-longa-permanencia">—</div>
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-pink-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">% Longa Permanência</div>
+                                    <div class="text-4xl font-bold text-pink-400" id="kpi-longa-permanencia">—</div>
+                                </div>
+                                <div class="text-pink-500 text-3xl"><i class="fas fa-exclamation-circle"></i></div>
+                            </div>
                         </div>
-                        <div class="kpi-card card-hover">
-                            <div class="kpi-label">Top Clínica (pacientes)</div>
-                            <div class="kpi-value" id="kpi-top-clinica">—</div>
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-indigo-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">Top Clínica (pac.)</div>
+                                    <div class="text-4xl font-bold text-indigo-400" id="kpi-top-clinica">—</div>
+                                </div>
+                                <div class="text-indigo-500 text-3xl"><i class="fas fa-hospital"></i></div>
+                            </div>
                         </div>
-                        <div class="kpi-card card-hover">
-                            <div class="kpi-label">Distribuição Sexo (M%:F%)</div>
-                            <div class="kpi-value" id="kpi-sexo-ratio">—</div>
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-cyan-500 card-hover border border-gray-700">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">M% : F%</div>
+                                    <div class="text-4xl font-bold text-cyan-400" id="kpi-sexo-ratio">—</div>
+                                </div>
+                                <div class="text-cyan-500 text-3xl"><i class="fas fa-venus-mars"></i></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -385,39 +396,69 @@
                     
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                         <!-- Chart 1: Série Temporal -->
-                        <div class="chart-container">
-                            <div class="chart-title">Pacientes Ativos por Dia</div>
-                            <div style="height: 250px; position: relative;"><canvas id="chart-serie-temporal"></canvas></div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-chart-line mr-2 text-blue-400"></i>
+                                Pacientes Ativos por Dia
+                            </h3>
+                            <div style="height: 300px; position: relative;">
+                                <canvas id="chart-serie-temporal"></canvas>
+                            </div>
                         </div>
 
                         <!-- Chart 2: Sexo -->
-                        <div class="chart-container">
-                            <div class="chart-title">Distribuição por Sexo</div>
-                            <div style="height: 250px; max-width: 300px; margin: 0 auto;"><canvas id="chart-sexo"></canvas></div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-venus-mars mr-2 text-pink-400"></i>
+                                Distribuição por Sexo
+                            </h3>
+                            <div style="height: 300px; position: relative;">
+                                <canvas id="chart-sexo"></canvas>
+                            </div>
                         </div>
 
                         <!-- Chart 3: Faixa Etária -->
-                        <div class="chart-container">
-                            <div class="chart-title">Distribuição por Faixa Etária</div>
-                            <div style="height: 250px; position: relative;"><canvas id="chart-faixa-etaria"></canvas></div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-chart-bar mr-2 text-green-400"></i>
+                                Distribuição por Faixa Etária
+                            </h3>
+                            <div style="height: 300px; position: relative;">
+                                <canvas id="chart-faixa-etaria"></canvas>
+                            </div>
                         </div>
 
                         <!-- Chart 4: Histograma Permanência -->
-                        <div class="chart-container">
-                            <div class="chart-title">Distribuição do Tempo de Permanência</div>
-                            <div style="height: 250px; position: relative;"><canvas id="chart-hist-permanencia"></canvas></div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-hourglass-half mr-2 text-orange-400"></i>
+                                Distribuição do Tempo de Permanência
+                            </h3>
+                            <div style="height: 300px; position: relative;">
+                                <canvas id="chart-hist-permanencia"></canvas>
+                            </div>
                         </div>
 
                         <!-- Chart 5: Top Clínicas -->
-                        <div class="chart-container lg:col-span-2">
-                            <div class="chart-title">Top 10 Clínicas por Pacientes</div>
-                            <div style="height: 280px; position: relative;"><canvas id="chart-top-clinicas"></canvas></div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-hospital mr-2 text-blue-400"></i>
+                                Top 10 Clínicas por Pacientes
+                            </h3>
+                            <div style="height: 300px; position: relative;">
+                                <canvas id="chart-top-clinicas"></canvas>
+                            </div>
                         </div>
 
                         <!-- Chart 6: LOS por Clínica -->
-                        <div class="chart-container lg:col-span-2">
-                            <div class="chart-title">Tempo Médio de Permanência por Clínica (Top 10)</div>
-                            <div style="height: 280px; position: relative;"><canvas id="chart-permanencia-clinica"></canvas></div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-clock mr-2 text-purple-400"></i>
+                                Tempo Médio de Permanência por Clínica (Top 10)
+                            </h3>
+                            <div style="height: 300px; position: relative;">
+                                <canvas id="chart-permanencia-clinica"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -469,7 +510,7 @@
                 <div id="table-section" class="hidden">
                     <h2 class="text-xl font-bold text-white mb-4"><i class="fas fa-table mr-2"></i>Pacientes Detalhados (Paginado)</h2>
                     
-                    <div class="chart-container">
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-2xl border border-gray-700 animate-fade-in">
                         <div class="table-responsive">
                             <table class="data-table">
                                 <thead>
