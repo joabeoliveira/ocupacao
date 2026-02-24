@@ -474,6 +474,7 @@
                         <button class="tab-button" onclick="switchTab('tab-avancado', event)">
                             <i class="fas fa-flask mr-2"></i>Análises Avançadas
                         </button>
+
                     </div>
 
                     <!-- Tab: Complementar -->
@@ -490,6 +491,19 @@
                             </ul>
                         </div>
                     </div>
+
+                        <!-- Complementar Charts Grid -->
+                        <div class="grid grid-cols-1 gap-6 mb-6">
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                <h3 class="font-bold text-white mb-4 text-lg">
+                                    <i class="fas fa-ban mr-2 text-red-400"></i>
+                                    Taxa de Leitos Impedidos por Dia (%)
+                                </h3>
+                                <div style="height: 300px; position: relative;">
+                                    <canvas id="chart-impedimentos-serie"></canvas>
+                                </div>
+                            </div>
+                        </div>
 
                     <!-- Tab: Avançado -->
                     <div id="tab-avancado" class="tab-content">
@@ -604,6 +618,14 @@
             document.getElementById(tabName).classList.add('active');
             event.target.closest('.tab-button').classList.add('active');
         }
+
+            // Tab Switching with Lazy Loading
+            async function switchTabWithLoad(tabName, event) {
+                switchTab(tabName, event);
+                if (tabName === 'tab-complementar') {
+                    await loadComplementaryCharts();
+                }
+            }
 
         // Load Main Data
         async function loadData() {
@@ -863,6 +885,52 @@
                 }
             });
         }
+
+            // Complementary Charts (Sprint 2)
+            async function loadComplementaryCharts() {
+                try {
+                    // Carrega série de impedimentos
+                    const qs = new URLSearchParams(currentFilters).toString();
+                    const res = await fetch('/api/perfil_paciente/impedimentos-serie' + (qs ? ('?' + qs) : ''));
+                    const json = await res.json();
+                    if (json.error) { console.error('Erro impedimentos:', json.error); return; }
+
+                    const ctx = document.getElementById('chart-impedimentos-serie')?.getContext('2d');
+                    if (!ctx) return; // Skip if element not visible
+
+                    if (chartsInstances['chart-impedimentos-serie']) {
+                        chartsInstances['chart-impedimentos-serie'].destroy();
+                    }
+
+                    chartsInstances['chart-impedimentos-serie'] = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: json.labels || [],
+                            datasets: [{
+                                label: 'Taxa de Impedimento (%)',
+                                data: json.data || [],
+                                borderColor: colors.chartOrange,
+                                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            scales: {
+                                x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                                y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid }, max: 100 }
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.error('Erro ao carregar gráficos complementares:', e);
+                }
+            }
 
         // Load Table Data
         async function loadTable() {
