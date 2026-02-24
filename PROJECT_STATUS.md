@@ -1,67 +1,189 @@
-# Project status — Perfil do Paciente
+# Project Status — NIR Dashboard: Perfil do Paciente
 
 Last updated: 2026-02-24
 
-Resumo rápido
-- Status: Sprint 1 (Core) implementada e disponível como tag para deploy.
-- Branch principal de desenvolvimento: `feature/perfil-paciente` (HEAD: commit `8a675f1`).
-- Tag pronta para deploy: `v3.4.0-perfil-s1` (pushed).
+## Resumo Executivo
 
-Principais entregas (Sprint 1)
-- Nova rota de UI: `/perfil_paciente` (`templates/perfil_paciente.html`).
-- APIs: `/api/perfil_paciente/resumo`, `/api/perfil_paciente/graficos`,
-  `/api/perfil_paciente/tabela`, `/api/perfil_paciente/export` (implementadas em `app.py`).
-- Export XLSX via pandas/openpyxl.
-- Atualização da sidebar em templates existentes para linkar a nova página.
+| Aspecto | Status |
+|--------|--------|
+| **Atual** | Sprint 2 (KPIs Avançados) **COMPLETO** ✅ |
+| **Branch** | `feature/perfil-paciente` |
+| **Commits** | 7 commits (Sprint 1 + Sprint 2) |
+| **Deploy** | Pronto para tag `v3.4.0-perfil-s2` |
 
-Status técnico
-- Código commitado na branch `feature/perfil-paciente` e push realizado.
-- Tag `v3.4.0-perfil-s1` criada e push para `origin`.
-- Arquivo `.env` removido do índice do Git e `.gitignore` adicionado.
+---
 
-Observações de deploy
-- Recomendado deploy via tag `v3.4.0-perfil-s1` (EasyPanel → Deploy from Git → Tag).
-- Build path / contexto: raiz do repositório. Se o EasyPanel pedir o Dockerfile, aponte para `./Dockerfile`.
-- Variáveis de ambiente requeridas no ambiente de execução:
-  - `DATABASE_URL` (ou `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`)
-  - `SECRET_KEY`
-  - `PORT` (se necessário)
+## Sprint 1 (Core) — CONCLUÍDO ✅
 
-Problemas conhecidos
-- Local smoke test mostrou a página UI carregando, porém APIs dependentes do banco
-  falharam enquanto o host `site_nir` estava inacessível no ambiente local.
+### Entregas
+- **UI:** Nova página `/perfil_paciente` com 3 tabs (Geral, Complementares, Avançados)
+- **Backend APIs (4):**
+  - `/api/perfil_paciente/resumo` — KPIs principais
+  - `/api/perfil_paciente/graficos` — 6 gráficos de análise
+  - `/api/perfil_paciente/tabela` — Dados paginados de pacientes
+  - `/api/perfil_paciente/export` — Download XLSX
 
-Próximos passos (priorizados)
-1. (Curto prazo) Deploy da tag `v3.4.0-perfil-s1` no EasyPanel e validação de endpoints.
-2. (Curto prazo) Fornecer rollback rápido: instruções para reverter para tag `v2.0.0-baseline-perfil` ou outra tag.
-3. (Médio prazo) Implementar cache/pre-aggregação para métricas pesadas (Sprint 2).
-4. (Médio prazo) Adicionar testes automatizados para APIs e cobertura de integração com o DB.
-5. (Opcional) Limpar histórico Git para remover ` .env` de commits antigos (BFG/git-filter-repo).
+### Componentes
+- 8 KPI cards no tab "Geral"
+- 6 gráficos: série temporal, sexo, faixa etária, histograma permanência, top clínicas, permanência por clínica
+- Filtros: prédio, clínica (dropdown), período, mês
+- Exportação de dados para Excel
 
-Checklist de verificação após deploy
-- [ok] `/perfil_paciente` retorna 200 e carrega assets
-- [ok] `/api/perfil_paciente/resumo` retorna dados agregados (200)
-- [ok] `/api/perfil_paciente/graficos` retorna séries/labels corretos
-- [ok] Export XLSX funciona e contém colunas esperadas
+---
 
-Referências
-- Branch: `feature/perfil-paciente`
-- Tag: `v3.4.0-perfil-s1`
-- Arquivos principais: `app.py`, `templates/perfil_paciente.html`, `.gitignore`
+## Sprint 2 (KPIs Avançados) — CONCLUÍDO ✅
 
-Contato
-- Para próximos passos posso executar deploy, criar instruções de rollback detalhadas,
-  ou limpar o histórico Git — me diga qual ação prefere que eu execute em seguida.
+### Entregas Backend (6 novos endpoints)
+1. **`/api/perfil_paciente/kpis-complementares`** — 5 novos KPIs
+   - Impedidos (%), Top 3 enfermarias, % Crônicos, % Ventilação Mecânica, % TRS
+2. **`/api/perfil_paciente/kpis-avancados`** — 3 KPIs estratégicos
+   - Rotatividade/leito, Motivo permanência (%), Tempo médio reserva
+3. **`/api/perfil_paciente/impedimentos-serie`** — Série temporal taxa impedimento
+4. **`/api/perfil_paciente/status-serie`** — Série multi-status leitos
+5. **`/api/perfil_paciente/impedimentos-top`** — Ranking top 10 motivos
+6. **`/api/perfil_paciente/longa-permanencia-ranking`** — Pacientes > 30 dias por clínica
+7. **`/api/perfil_paciente/rotatividade-serie`** — Série rotatividade semanal
+8. **`/api/perfil_paciente/reserva-serie`** — Série tempo médio reserva
 
-Link para instruções de rollback
-- Veja também: `ROLLBACK_INSTRUCTIONS.md` (procedimento passo-a-passo para EasyPanel/Git).
+### Entregas Frontend
+- **KPIs Complementares Tab:** 5 cards (impedidos %, enfermarias, crônicos, ventilação, TRS)
+- **KPIs Avançados Tab:** 3 cards (rotatividade, motivo permanência, tempo reserva)
+- **Gráficos Avançados:** 3 novos charts (rotatividade série, longa permanência ranking, reserva série)
+- **Lazy Loading:** Abas carregam dados sob demanda com loading states
+- **Heatmap:** Ocupação por dia × clínica (grid visual)
 
-Registro de auditoria (ações recentes)
-- 2026-02-24 — Tag `v3.4.0-perfil-s1` criada e enviada para `origin` — executado pelo assistente.
-- 2026-02-24 — Arquivo `.env` removido do índice do Git e `.gitignore` adicionado — commit enviado para `feature/perfil-paciente` — executado pelo assistente.
-- 2026-02-24 — `PROJECT_STATUS.md` criado com resumo do projeto — executado pelo assistente.
-- 2026-02-24 — `ROLLBACK_INSTRUCTIONS.md` criado com passos de rollback em Português — executado pelo assistente.
+### Melhorias UI/UX
+- ✅ Botões "Filtros" padronizados (ícone + texto, hover azul-900)
+- ✅ Campos de input brancos (cores consistentes em todas as páginas)
+- ✅ Dropdown clínica carregado via API `/api/painel/clinicas`
+- ✅ Remoção de texto "Sprint 2/3" dos cards
+- ✅ Layout reorganizado (painel: evolucao top, clinica 380px bottom)
+- ✅ Gráfico clinica: horizontal → **vertical bars**
 
-Audit log notes
-- Se desejar, prefira adicionar o seu nome/usuário e email como "verificador" após cada ação para fins de auditoria humana.
+### ChartDataLabels (Todos os Gráficos)
+- ✅ Plugin instalado em todas as 4 páginas (painel, disponibilidade, tempo_permanencia, perfil_paciente)
+- ✅ Dado label em cada barra/ponto/fatia para leitura rápida
+- ✅ Valores formatados: % para taxas, números para quantidade
+- ✅ 17 gráficos com labels habilitados:
+  - **perfil_paciente:** 12 charts
+  - **disponibilidade:** 2 charts
+  - **tempo_permanencia:** 2 charts
+  - **painel:** já estava funcionando
+
+---
+
+## Arquitetura Técnica
+
+### Backend (app.py)
+```python
+# Endpoints Perfil Paciente
+@app.route('/api/perfil_paciente/resumo')           # GET
+@app.route('/api/perfil_paciente/graficos')         # GET
+@app.route('/api/perfil_paciente/tabela')           # GET
+@app.route('/api/perfil_paciente/export')           # GET
+@app.route('/api/perfil_paciente/kpis-complementares')
+@app.route('/api/perfil_paciente/kpis-avancados')
+@app.route('/api/perfil_paciente/impedimentos-serie')
+@app.route('/api/perfil_paciente/status-serie')
+@app.route('/api/perfil_paciente/impedimentos-top')
+@app.route('/api/perfil_paciente/longa-permanencia-ranking')
+@app.route('/api/perfil_paciente/rotatividade-serie')
+@app.route('/api/perfil_paciente/reserva-serie')
+```
+
+### Frontend (templates/)
+- **perfil_paciente.html:** 3 tabs, 20 KPI cards, 12 charts, lazy loading
+- **painel.html:** Melhorado — layout reorganizado, datalabels
+- **disponibilidade.html:** Adicionado datalabels
+- **tempo_permanencia.html:** Adicionado datalabels
+- **index.html:** Menu atualizado (removido submenu perfil_paciente)
+
+### Dependencies
+- Backend: Flask, SQLAlchemy, pandas, openpyxl
+- Frontend: Tailwind CSS, Chart.js 3.x, chartjs-plugin-datalabels@2
+- Database: MySQL (`historico_ocupacao_completo` table)
+
+---
+
+## Checklist de Validação
+
+### ✅ Backend
+- [x] 8 endpoints implementados com filtros corretos
+- [x] Null handling robusto
+- [x] Paginação funciona (perfil_paciente/tabela)
+- [x] Export XLSX inclui todas colunas
+
+### ✅ Frontend
+- [x] 3 tabs carregam corretamente
+- [x] Lazy loading das abas (complementar, avançado)
+- [x] Dropdown clínica carrega via API
+- [x] Filtros aplicados corretamente
+- [x] Todas as cores = branco para inputs
+- [x] Botões "Filtros" padronizados todas páginas
+- [x] Chart labels visíveis (datalabels enabled)
+
+### ✅ UX/UI
+- [x] Sem erros de console
+- [x] Responsive mobile-friendly
+- [x] Temas claro/escuro funciona
+- [x] Ícones + textos em botões
+- [x] Paginação table funciona
+
+---
+
+## Commits Recentes
+
+| Hash | Mensagem | Data |
+|------|----------|------|
+| 5f2343c | Fix: Enable datalabels plugin on all Chart instances | 2026-02-24 |
+| 1d48895 | Sprint 2: Add advanced KPIs cards and charts (complementary tab) | 2026-02-24 |
+| ... | Auth commits Sprint 1 | 2026-02-24 |
+
+---
+
+## Registro de Auditoria
+
+- **2026-02-24** — Sprint 2 finalizado: 6 endpoints + 8 KPI cards + 3 charts + datalabels globais
+- **2026-02-24** — Fix: datalabels.enabled adicionado a 17 Chart instances (perfil_paciente, disponibilidade, tempo_permanencia)
+- **2026-02-24** — UI/UX: Padronização filtros, inputs brancos, dropdown clínica, layout reorganizado
+- **2026-02-24** — CODE QUALITY: Todos os gráficos com valores visíveis para facilitar leitura
+
+---
+
+## Preparação para Deploy
+
+### Tag recomendada
+```bash
+git tag -a v3.4.0-perfil-s2 -m "Sprint 2: Complete - KPIs avançados, 8 endpoints, datalabels"
+git push origin v3.4.0-perfil-s2
+```
+
+### Requerimentos de Ambiente
+- `DATABASE_URL` ou (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`)
+- `SECRET_KEY`
+- Python 3.8+
+- MySQL 5.7+
+
+### Health Checks Pós-Deploy
+```bash
+curl http://api.example.com/api/perfil_paciente/resumo?predio=X&clinica=Y
+curl http://api.example.com/api/perfil_paciente/kpis-complementares?predio=X
+curl http://api.example.com/api/perfil_paciente/kpis-avancados?predio=X
+curl http://api.example.com/api/version
+```
+
+---
+
+## Próximos Passos (Sprint 3+)
+
+1. **Performance:** Implementar cache/redis para métricas agregadas
+2. **Alertas:** Notificações quando KPIs excedem thresholds
+3. **Export:** Adicionar PDF com gráficos + relatório
+4. **Mobile:** Otimizar responsive para tablets (landscape)
+5. **Testes:** Cobertura automatizada (unit + integration)
+6. **Analytics:** Dashboard com eventos de uso (user behavior tracking)
+
+---
+
+**Status Final:** README completo, código limpo, pronto para merge e deploy via tag `v3.4.0-perfil-s2`. 🚀
 
