@@ -1679,6 +1679,37 @@ def api_perfil_paciente_export():
 def perfil_paciente():
     return render_template('perfil_paciente.html')
 
+    @app.route('/api/perfil_paciente/impedimentos-serie')
+    def api_perfil_paciente_impedimentos_serie():
+        """Retorna série temporal da taxa de impedimentos por dia (%)"""
+        if not db_status:
+            return {"error": "Banco não conectado"}, 500
+
+        try:
+            with engine.connect() as conn:
+                range_context = _get_perfil_range_context(conn, request.args)
+                if not range_context:
+                    return {"error": "Sem dados disponíveis"}, 404
+
+                sql_impedimentos = text(f"""
+                    SELECT
+                        DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                        COUNT(*) as total,
+                        COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' THEN 1 ELSE 0 END), 0) as impedidos
+                    FROM historico_ocupacao_completo
+                    WHERE {range_context['where']}
+                    GROUP BY data_referencia
+                    ORDER BY data_referencia
+                """)
+                rows = conn.execute(sql_impedimentos, range_context['params']).mappings().all()
+
+                return jsonify({
+                    "labels": [r['dia'] for r in rows],
+                    "data": [round((int(r['impedidos']) / int(r['total'])) * 100, 1) if int(r['total']) > 0 else 0 for r in rows]
+                })
+        except Exception as e:
+            return {"error": str(e)}, 500
+
 # ROTA PARA O PAINEL (renderiza template estático)
 @app.route('/painel')
 def painel():
