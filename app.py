@@ -1939,6 +1939,114 @@ def api_perfil_paciente_kpis_avancados():
         return {"error": str(e)}, 500
 
 
+@app.route('/api/perfil_paciente/rotatividade-serie')
+def api_perfil_paciente_rotatividade_serie():
+    """Retorna serie temporal de rotatividade por leito (pacientes / leito)."""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            range_context = _get_perfil_range_context_all(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            sql = text(f"""
+                SELECT
+                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    COUNT(DISTINCT COALESCE(
+                        NULLIF(TRIM(cns_paciente), ''),
+                        NULLIF(TRIM(prontuario), ''),
+                        NULLIF(TRIM(aih_paciente), ''),
+                        NULLIF(TRIM(nome_paciente), ''),
+                        CONCAT('LEITO-', num_enf, '-', leito)
+                    )) as pacientes,
+                    COUNT(DISTINCT CONCAT(num_enf, '-', leito)) as leitos
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']} AND status_leito = 'OCUPADO'
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            rows = conn.execute(sql, range_context['params']).mappings().all()
+
+            return jsonify({
+                "labels": [r['dia'] for r in rows],
+                "data": [round((int(r['pacientes']) / int(r['leitos'])), 2) if int(r['leitos']) > 0 else 0 for r in rows]
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/perfil_paciente/longa-permanencia-ranking')
+def api_perfil_paciente_longa_permanencia_ranking():
+    """Retorna ranking de longa permanencia por clinica."""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            context = _get_perfil_snapshot_context(conn, request.args)
+            if not context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            params = dict(context['params'])
+            params['ref_date'] = context['selected_date']
+            base_sql = _patient_profile_query(context['where'])
+            sql = text(f"""
+                SELECT nome_enfermaria as clinica,
+                       COUNT(*) as cnt,
+                       AVG(dias) as media
+                FROM ({base_sql}) t
+                WHERE dias > 30
+                GROUP BY clinica
+                ORDER BY cnt DESC
+                LIMIT 10
+            """)
+            rows = conn.execute(sql, params).mappings().all()
+
+            return jsonify({
+                "labels": [r['clinica'] or 'Sem clinica' for r in rows],
+                "data": [int(r['cnt']) for r in rows],
+                "avg": [round(float(r['media'] or 0), 1) for r in rows]
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/perfil_paciente/reserva-serie')
+def api_perfil_paciente_reserva_serie():
+    """Retorna serie temporal do tempo medio entre reserva e ocupacao."""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            range_context = _get_perfil_range_context_all(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            sql = text(f"""
+                SELECT
+                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    AVG(TIMESTAMPDIFF(DAY, data_sol_reserva, data_internacao_leito)) as media_dias
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']}
+                  AND data_sol_reserva IS NOT NULL
+                  AND data_internacao_leito IS NOT NULL
+                  AND TIMESTAMPDIFF(DAY, data_sol_reserva, data_internacao_leito) >= 0
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            rows = conn.execute(sql, range_context['params']).mappings().all()
+
+            return jsonify({
+                "labels": [r['dia'] for r in rows],
+                "data": [round(float(r['media_dias'] or 0), 1) for r in rows]
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @app.route('/api/perfil_paciente/ocupacao-heatmap')
 def api_perfil_paciente_ocupacao_heatmap():
     """Retorna matriz de ocupacao por dia da semana x clinica (top 10 clinicas)."""

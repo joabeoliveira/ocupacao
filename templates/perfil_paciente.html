@@ -600,6 +600,35 @@
                                 <div class="text-xs text-gray-500">dias (media)</div>
                             </div>
                         </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                <h3 class="font-bold text-white mb-4 text-lg">
+                                    <i class="fas fa-retweet mr-2 text-cyan-400"></i>
+                                    Rotatividade por Leito (Serie)
+                                </h3>
+                                <div style="height: 300px; position: relative;">
+                                    <canvas id="chart-rotatividade-serie"></canvas>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                <h3 class="font-bold text-white mb-4 text-lg">
+                                    <i class="fas fa-hourglass mr-2 text-orange-400"></i>
+                                    Tempo Medio Reserva x Ocupacao
+                                </h3>
+                                <div style="height: 300px; position: relative;">
+                                    <canvas id="chart-reserva-serie"></canvas>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                                <h3 class="font-bold text-white mb-4 text-lg">
+                                    <i class="fas fa-list-ol mr-2 text-purple-400"></i>
+                                    Ranking de Longa Permanencia (Top 10)
+                                </h3>
+                                <div style="height: 300px; position: relative;">
+                                    <canvas id="chart-longa-ranking"></canvas>
+                                </div>
+                            </div>
+                        </div>
                         <div class="bg-purple-900/20 border border-purple-700 rounded-lg p-6 text-center text-purple-200">
                             <i class="fas fa-flask mr-2"></i>
                             Análises avançadas serão implementadas no Sprint 3 (processamento assíncrono):
@@ -721,6 +750,7 @@
                 }
                 if (tabName === 'tab-avancado') {
                     await loadAdvancedKpis();
+                    await loadAdvancedCharts();
                 }
             }
 
@@ -1195,6 +1225,115 @@
                 document.getElementById('kpi-adv-reserva').textContent = json.tempo_medio_reserva !== null ? `${json.tempo_medio_reserva}d` : '—';
             } catch (e) {
                 console.error('Erro ao carregar KPIs avancados:', e);
+            }
+        }
+
+        async function loadAdvancedCharts() {
+            try {
+                const colors = getChartColors();
+                const qs = new URLSearchParams(currentFilters).toString();
+
+                const resRot = await fetch('/api/perfil_paciente/rotatividade-serie' + (qs ? ('?' + qs) : ''));
+                const jsonRot = await resRot.json();
+                if (jsonRot.error) { console.error('Erro rotatividade:', jsonRot.error); return; }
+
+                const ctxRot = document.getElementById('chart-rotatividade-serie')?.getContext('2d');
+                if (ctxRot) {
+                    if (chartsInstances['chart-rotatividade-serie']) {
+                        chartsInstances['chart-rotatividade-serie'].destroy();
+                    }
+                    chartsInstances['chart-rotatividade-serie'] = new Chart(ctxRot, {
+                        type: 'line',
+                        data: {
+                            labels: jsonRot.labels || [],
+                            datasets: [{
+                                label: 'Rotatividade/Leito',
+                                data: jsonRot.data || [],
+                                borderColor: colors.chartBlue,
+                                backgroundColor: 'rgba(11, 114, 217, 0.1)',
+                                tension: 0.35,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            scales: {
+                                x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                                y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                            }
+                        }
+                    });
+                }
+
+                const resRes = await fetch('/api/perfil_paciente/reserva-serie' + (qs ? ('?' + qs) : ''));
+                const jsonRes = await resRes.json();
+                if (jsonRes.error) { console.error('Erro reserva:', jsonRes.error); return; }
+
+                const ctxRes = document.getElementById('chart-reserva-serie')?.getContext('2d');
+                if (ctxRes) {
+                    if (chartsInstances['chart-reserva-serie']) {
+                        chartsInstances['chart-reserva-serie'].destroy();
+                    }
+                    chartsInstances['chart-reserva-serie'] = new Chart(ctxRes, {
+                        type: 'line',
+                        data: {
+                            labels: jsonRes.labels || [],
+                            datasets: [{
+                                label: 'Dias (media)',
+                                data: jsonRes.data || [],
+                                borderColor: colors.chartOrange,
+                                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                                tension: 0.35,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            scales: {
+                                x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                                y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                            }
+                        }
+                    });
+                }
+
+                const resLonga = await fetch('/api/perfil_paciente/longa-permanencia-ranking' + (qs ? ('?' + qs) : ''));
+                const jsonLonga = await resLonga.json();
+                if (jsonLonga.error) { console.error('Erro ranking longa:', jsonLonga.error); return; }
+
+                const ctxLonga = document.getElementById('chart-longa-ranking')?.getContext('2d');
+                if (ctxLonga) {
+                    if (chartsInstances['chart-longa-ranking']) {
+                        chartsInstances['chart-longa-ranking'].destroy();
+                    }
+                    chartsInstances['chart-longa-ranking'] = new Chart(ctxLonga, {
+                        type: 'bar',
+                        data: {
+                            labels: jsonLonga.labels || [],
+                            datasets: [{
+                                label: 'Pacientes > 30d',
+                                data: jsonLonga.data || [],
+                                backgroundColor: colors.chartGreen
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: colors.chartText } } },
+                            scales: {
+                                x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                                y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                            },
+                            indexAxis: 'y'
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Erro ao carregar graficos avancados:', e);
             }
         }
 
