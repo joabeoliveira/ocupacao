@@ -581,10 +581,10 @@
             try {
                 // Build query string
                 const params = new URLSearchParams(currentFilters);
-                const response = await fetch(`/api/perfil_paciente/dados?${params}`);
+                const response = await fetch(`/api/perfil_paciente/graficos?${params}`);
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: Erro ao carregar dados da API`);
+                    throw new Error(`HTTP ${response.status}: Endpoint não encontrado`);
                 }
 
                 const data = await response.json();
@@ -610,7 +610,7 @@
 
             } catch (error) {
                 console.error('Erro:', error);
-                loading.innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i> Erro ao carregar dados: ${error.message}</div>`;
+                loading.innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i> Erro ao carregar gráficos: ${error.message}</div>`;
             }
         }
 
