@@ -1620,10 +1620,94 @@
             }
         }
 
+        // Add chart export buttons
+        function addChartExportButtons() {
+            const chartContainers = [
+                'chart-serie-temporal', 'chart-sexo', 'chart-faixa-etaria',
+                'chart-hist-permanencia', 'chart-top-clinicas', 'chart-permanencia-clinica'
+            ];
+
+            chartContainers.forEach(chartId => {
+                const canvas = document.getElementById(chartId);
+                if (!canvas) return;
+
+                const container = canvas.parentElement;
+                container.style.position = 'relative';
+
+                // Create export button group
+                const btnGroup = document.createElement('div');
+                btnGroup.style.cssText = `
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    display: flex;
+                    gap: 5px;
+                    opacity: 0;
+                    transition: opacity 0.2s;
+                    z-index: 100;
+                `;
+                btnGroup.className = 'chart-export-buttons';
+
+                // Copy button
+                const copyBtn = document.createElement('button');
+                copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                copyBtn.title = 'Copiar gráfico';
+                copyBtn.style.cssText = `
+                    background: rgba(11, 114, 217, 0.95);
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 6px 10px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                `;
+                copyBtn.onclick = async () => {
+                    try {
+                        canvas.toBlob(blob => {
+                            const item = new ClipboardItem({ 'image/png': blob });
+                            navigator.clipboard.write([item]);
+                            copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                            setTimeout(() => copyBtn.innerHTML = '<i class="fas fa-copy"></i>', 1500);
+                        });
+                    } catch (err) {
+                        alert('Erro ao copiar gráfico. Tente baixar em PNG.');
+                        console.error(err);
+                    }
+                };
+
+                // Download button
+                const downloadBtn = document.createElement('button');
+                downloadBtn.innerHTML = '<i class="fas fa-download"></i>';
+                downloadBtn.title = 'Baixar como PNG';
+                downloadBtn.style.cssText = copyBtn.style.cssText;
+                downloadBtn.onclick = () => {
+                    const link = document.createElement('a');
+                    link.download = `${chartId}_${new Date().toISOString().slice(0,10)}.png`;
+                    link.href = canvas.toDataURL('image/png', 1.0);
+                    link.click();
+                };
+
+                btnGroup.appendChild(copyBtn);
+                btnGroup.appendChild(downloadBtn);
+                container.appendChild(btnGroup);
+
+                // Show/hide buttons on hover
+                container.addEventListener('mouseenter', () => {
+                    btnGroup.style.opacity = '1';
+                });
+                container.addEventListener('mouseleave', () => {
+                    btnGroup.style.opacity = '0';
+                });
+            });
+        }
+
         // Initial Load
         window.addEventListener('load', () => {
             loadClinicasFilter();
             loadData();
+            // Add export buttons after charts are rendered
+            setTimeout(addChartExportButtons, 1000);
         });
     </script>
 </body>
