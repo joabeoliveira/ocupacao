@@ -1495,6 +1495,34 @@
                 ];
                 console.log('KPIs coletados:', kpis.length);
 
+                // Function to update chart text colors for PDF export
+                function updateChartColorsForPDF(chartId, darkColors = true) {
+                    const chart = chartsInstances[chartId];
+                    if (!chart) return;
+                    
+                    const textColor = darkColors ? '#1f2937' : '#e6eef8';
+                    const gridColor = darkColors ? '#d1d5db' : 'rgba(255, 255, 255, 0.06)';
+                    
+                    // Update scales colors
+                    if (chart.options.scales) {
+                        Object.keys(chart.options.scales).forEach(axis => {
+                            if (chart.options.scales[axis].ticks) {
+                                chart.options.scales[axis].ticks.color = textColor;
+                            }
+                            if (chart.options.scales[axis].grid) {
+                                chart.options.scales[axis].grid.color = gridColor;
+                            }
+                        });
+                    }
+                    
+                    // Update legend color
+                    if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+                        chart.options.plugins.legend.labels.color = textColor;
+                    }
+                    
+                    chart.update('none'); // Update without animation
+                }
+
                 // Function to capture canvas in high resolution
                 function captureCanvasHighRes(canvas, scale = 2) {
                     const tempCanvas = document.createElement('canvas');
@@ -1527,11 +1555,22 @@
                     const canvas = document.getElementById(id);
                     if (canvas) {
                         try {
+                            // Update colors to dark for PDF
+                            updateChartColorsForPDF(id, true);
+                            
+                            // Small delay to ensure chart is rendered
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            
                             const imageData = captureCanvasHighRes(canvas, 2);
                             charts.push({title, image: imageData});
                             console.log(`Gráfico ${id}: ${Math.round(imageData.length/1024)}KB`);
+                            
+                            // Restore original colors
+                            updateChartColorsForPDF(id, false);
                         } catch (err) {
                             console.error(`Erro ao capturar ${id}:`, err);
+                            // Restore colors even on error
+                            updateChartColorsForPDF(id, false);
                         }
                     } else {
                         console.warn(`Canvas ${id} não encontrado`);
