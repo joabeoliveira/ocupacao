@@ -8,3 +8,4 @@ cryptography==41.0.7
 openpyxl==3.1.2
 xlrd==2.0.1
 lxml==4.9.3
+weasyprint==60.1

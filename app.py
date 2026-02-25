@@ -1,11 +1,15 @@
 import os
 import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, make_response
 from sqlalchemy import create_engine, text, inspect
 import sys
 from io import BytesIO
 from dotenv import load_dotenv
 from VERSION import get_version
+from weasyprint import HTML
+import base64
+import json
+from datetime import datetime
 
 # Carrega .env se existir (apenas local)
 load_dotenv()
@@ -2114,6 +2118,186 @@ def painel():
 @app.route('/tempo_permanencia')
 def tempo_permanencia():
     return render_template('tempo_permanencia.html')
+
+
+@app.route('/api/export/pdf', methods=['POST'])
+def export_pdf():
+    """Generate PDF report from dashboard data (KPIs + charts as base64 images)."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        page_title = data.get('page_title', 'NIR Dashboard - Relatório')
+        filters = data.get('filters', {})
+        kpis = data.get('kpis', [])
+        charts = data.get('charts', [])
+        
+        # Build filter summary text
+        filter_text = []
+        if filters.get('predio'):
+            filter_text.append(f"Prédio {filters['predio']}")
+        if filters.get('clinica'):
+            filter_text.append(f"Clínica: {filters['clinica']}")
+        if filters.get('periodo_inicio') and filters.get('periodo_fim'):
+            filter_text.append(f"Período: {filters['periodo_inicio']} a {filters['periodo_fim']}")
+        elif filters.get('mes'):
+            meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+            filter_text.append(f"Mês: {meses[int(filters['mes'])]}")
+        if filters.get('data_referencia'):
+            filter_text.append(f"Data: {filters['data_referencia']}")
+        
+        filters_display = ' | '.join(filter_text) if filter_text else 'Todos os dados'
+        
+        # Build HTML report
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{page_title}</title>
+    <style>
+        @page {{
+            size: A4;
+            margin: 2cm;
+        }}
+        body {{
+            font-family: Arial, sans-serif;
+            color: #1f2937;
+            line-height: 1.6;
+        }}
+        .header {{
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid #0b72d9;
+        }}
+        .header h1 {{
+            color: #0b72d9;
+            margin: 0;
+            font-size: 24pt;
+        }}
+        .header .subtitle {{
+            color: #6b7280;
+            margin-top: 0.5rem;
+            font-size: 10pt;
+        }}
+        .filters {{
+            background: #f3f4f6;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            font-size: 9pt;
+        }}
+        .filters strong {{
+            color: #0b72d9;
+        }}
+        .kpi-grid {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }}
+        .kpi-card {{
+            background: #f9fafb;
+            border-left: 4px solid #0b72d9;
+            padding: 1rem;
+            border-radius: 4px;
+        }}
+        .kpi-label {{
+            font-size: 8pt;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }}
+        .kpi-value {{
+            font-size: 20pt;
+            font-weight: bold;
+            color: #1f2937;
+        }}
+        .chart-section {{
+            margin-bottom: 2rem;
+            page-break-inside: avoid;
+        }}
+        .chart-title {{
+            font-size: 12pt;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }}
+        .chart-image {{
+            width: 100%;
+            max-width: 100%;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }}
+        .footer {{
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+            font-size: 8pt;
+            color: #9ca3af;
+            text-align: center;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{page_title}</h1>
+        <div class="subtitle">Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
+    </div>
+    
+    <div class="filters">
+        <strong>Filtros aplicados:</strong> {filters_display}
+    </div>
+"""
+
+        # Add KPIs
+        if kpis:
+            html_content += '<div class="kpi-grid">'
+            for kpi in kpis:
+                html_content += f"""
+    <div class="kpi-card">
+        <div class="kpi-label">{kpi.get('label', '')}</div>
+        <div class="kpi-value">{kpi.get('value', '—')}</div>
+    </div>
+"""
+            html_content += '</div>'
+
+        # Add charts
+        for chart in charts:
+            html_content += f"""
+    <div class="chart-section">
+        <div class="chart-title">{chart.get('title', 'Gráfico')}</div>
+        <img class="chart-image" src="{chart.get('image', '')}" alt="{chart.get('title', '')}">
+    </div>
+"""
+
+        html_content += """
+    <div class="footer">
+        NIR Dashboard — Sistema de Gestão de Leitos Hospitalares
+    </div>
+</body>
+</html>
+"""
+
+        # Generate PDF
+        pdf_bytes = HTML(string=html_content).write_pdf()
+        
+        # Create response
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        filename = f"relatorio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        
+        return response
+
+    except Exception as e:
+        print(f"Erro ao gerar PDF: {e}", flush=True)
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)

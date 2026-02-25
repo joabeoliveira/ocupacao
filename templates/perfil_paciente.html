@@ -299,6 +299,7 @@
                         <div class="flex gap-2 flex-wrap">
                             <button onclick="toggleTheme()" id="theme-toggle" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition"><i id="theme-icon" class="fas fa-sun"></i></button>
                             <button onclick="toggleFilters()" class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded transition"><i class="fas fa-filter mr-2"></i>Filtros</button>
+                            <button onclick="exportPDF()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition"><i class="fas fa-file-pdf mr-2"></i>Export PDF</button>
                             <button onclick="exportData()" class="export-btn"><i class="fas fa-download"></i>Export XLSX</button>
                         </div>
                     </div>
@@ -1476,6 +1477,73 @@
             window.location.href = `/api/perfil_paciente/export?${params}`;
         }
 
+        // Export PDF
+        async function exportPDF() {
+            try {
+                // Collect KPIs
+                const kpis = [
+                    {label: 'Pacientes Únicos', value: document.getElementById('kpi-pacientes')?.textContent || '—'},
+                    {label: 'Idade Média', value: document.getElementById('kpi-idade-media')?.textContent || '—'},
+                    {label: 'Idade Mediana', value: document.getElementById('kpi-idade-mediana')?.textContent || '—'},
+                    {label: 'Tempo Médio (dias)', value: document.getElementById('kpi-tempo-medio')?.textContent || '—'},
+                    {label: 'Tempo Mediano (dias)', value: document.getElementById('kpi-tempo-mediano')?.textContent || '—'},
+                    {label: '% Longa Permanência', value: document.getElementById('kpi-longa-permanencia')?.textContent || '—'},
+                    {label: 'Top Clínica', value: document.getElementById('kpi-top-clinica')?.textContent || '—'},
+                    {label: 'M% : F%', value: document.getElementById('kpi-sexo-ratio')?.textContent || '—'}
+                ];
+
+                // Collect charts as base64
+                const charts = [];
+                const chartIds = [
+                    {id: 'chart-serie-temporal', title: 'Pacientes Ativos por Dia'},
+                    {id: 'chart-sexo', title: 'Distribuição por Sexo'},
+                    {id: 'chart-faixa-etaria', title: 'Distribuição por Faixa Etária'},
+                    {id: 'chart-hist-permanencia', title: 'Distribuição do Tempo de Permanência'},
+                    {id: 'chart-top-clinicas', title: 'Top 10 Clínicas por Pacientes'},
+                    {id: 'chart-permanencia-clinica', title: 'Tempo Médio de Permanência por Clínica'}
+                ];
+
+                for (const {id, title} of chartIds) {
+                    const canvas = document.getElementById(id);
+                    if (canvas) {
+                        const imageData = canvas.toDataURL('image/png');
+                        charts.push({title, image: imageData});
+                    }
+                }
+
+                // Prepare payload
+                const payload = {
+                    page_title: 'Perfil do Paciente - NIR Dashboard',
+                    filters: currentFilters,
+                    kpis,
+                    charts
+                };
+
+                // Send to backend
+                const response = await fetch('/api/export/pdf', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('Erro ao gerar PDF');
+
+                // Download PDF
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `perfil_paciente_${new Date().toISOString().slice(0,10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Erro ao exportar PDF:', error);
+                alert('Erro ao gerar PDF. Verifique o console.');
+            }
+        }
+
         // Initial Load
         window.addEventListener('load', () => {
             loadClinicasFilter();
@@ -1484,3 +1552,4 @@
     </script>
 </body>
 </html>
+
