@@ -802,25 +802,36 @@
             tableSection.classList.add('hidden');
 
             try {
-                // Build query string
                 const params = new URLSearchParams(currentFilters);
-                const response = await fetch(`/api/perfil_paciente/graficos?${params}`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: Endpoint não encontrado`);
+                const [graficosResponse, resumoResponse] = await Promise.all([
+                    fetch(`/api/perfil_paciente/graficos?${params}`),
+                    fetch(`/api/perfil_paciente/resumo?${params}`)
+                ]);
+
+                if (!graficosResponse.ok) {
+                    throw new Error(`HTTP ${graficosResponse.status}: Endpoint de gráficos não encontrado`);
                 }
 
-                const data = await response.json();
-
-                if (data.error) {
-                    throw new Error(data.error);
+                if (!resumoResponse.ok) {
+                    throw new Error(`HTTP ${resumoResponse.status}: Endpoint de resumo não encontrado`);
                 }
 
-                // Populate KPIs
-                populateKPIs(data);
+                const graficosData = await graficosResponse.json();
+                const resumoData = await resumoResponse.json();
+
+                if (graficosData.error) {
+                    throw new Error(graficosData.error);
+                }
+
+                if (resumoData.error) {
+                    throw new Error(resumoData.error);
+                }
+
+                // Populate KPIs com dados reais
+                populateKPIs(resumoData, graficosData);
 
                 // Render Charts
-                renderCharts(data);
+                renderCharts(graficosData);
 
                 // Load complementary charts (default tab)
                 await loadComplementaryCharts();
@@ -841,47 +852,39 @@
             }
         }
 
-        // Populate KPI Cards
-        function populateKPIs(data) {
+        // Populate KPI Cards com dados reais
+        function populateKPIs(resumo, graficos) {
             try {
-                // Extract data from API response
-                const sexoData = data.sexo?.data || [];
-                const faixaData = data.faixa_etaria?.data || [];
-                const histData = data.hist_permanencia?.data || [];
-                const topData = data.top_clinicas?.data || [];
+                const asNumber = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
+                const formatDecimal = (value, decimals = 1) => {
+                    const numeric = asNumber(value);
+                    return numeric === null ? '—' : numeric.toFixed(decimals);
+                };
+                const formatInteger = (value) => {
+                    const numeric = asNumber(value);
+                    return numeric === null ? '—' : numeric.toLocaleString('pt-BR');
+                };
+                const formatPercent = (value) => {
+                    const numeric = asNumber(value);
+                    return numeric === null ? '—' : `${numeric.toFixed(1)}%`;
+                };
 
-                const totalPacientes = sexoData.reduce((a, b) => a + b, 0);
-                
-                // Basic stats (to be enhanced with direct API aggregation)
-                const masculine = sexoData[0] || 0;
-                const feminine = sexoData[1] || 0;
-                const mPct = totalPacientes > 0 ? ((masculine / totalPacientes) * 100).toFixed(1) : 0;
-                const fPct = totalPacientes > 0 ? ((feminine / totalPacientes) * 100).toFixed(1) : 0;
+                const totalPacientes = resumo?.total_pacientes;
+                const longaPct = resumo?.longa_permanencia_pct;
+                const topLabels = graficos?.top_clinicas?.labels || [];
+                const topValues = graficos?.top_clinicas?.data || [];
+                const topClinic = topLabels.length
+                    ? `${topLabels[0]} (${asNumber(topValues[0]) ?? 0})`
+                    : '—';
 
-                // Mock age calculation (in real scenario, API should return aggregated stats)
-                const avgAge = faixaData.length > 0 ? (Math.random() * 30 + 50).toFixed(1) : '—';
-                const medAge = faixaData.length > 0 ? (Math.random() * 30 + 45).toFixed(0) : '—';
-
-                // LOS calculation (mock, should come from API)
-                const avgLos = histData.length > 0 ? (Math.random() * 15 + 8).toFixed(1) : '—';
-                const medLos = histData.length > 0 ? (Math.random() * 15 + 5).toFixed(0) : '—';
-
-                // Long LOS percentage
-                const longLosCount = (histData[4] || 0) + (histData[5] || 0); // >60 days buckets
-                const longLosPerc = totalPacientes > 0 ? ((longLosCount / totalPacientes) * 100).toFixed(1) : 0;
-
-                // Top clinic
-                const topClinic = topData[0] || 0;
-
-                // Update DOM
-                document.getElementById('kpi-pacientes').textContent = totalPacientes.toString();
-                document.getElementById('kpi-idade-media').textContent = avgAge;
-                document.getElementById('kpi-idade-mediana').textContent = medAge;
-                document.getElementById('kpi-tempo-medio').textContent = avgLos;
-                document.getElementById('kpi-tempo-mediano').textContent = medLos;
-                document.getElementById('kpi-longa-permanencia').textContent = longLosPerc + '%';
-                document.getElementById('kpi-top-clinica').textContent = topClinic.toString();
-                document.getElementById('kpi-sexo-ratio').textContent = `${mPct}:${fPct}`;
+                document.getElementById('kpi-pacientes').textContent = formatInteger(totalPacientes);
+                document.getElementById('kpi-idade-media').textContent = formatDecimal(resumo?.idade_media);
+                document.getElementById('kpi-idade-mediana').textContent = formatDecimal(resumo?.idade_mediana, 0);
+                document.getElementById('kpi-tempo-medio').textContent = formatDecimal(resumo?.tempo_medio);
+                document.getElementById('kpi-tempo-mediano').textContent = formatDecimal(resumo?.tempo_mediano, 0);
+                document.getElementById('kpi-longa-permanencia').textContent = formatPercent(longaPct);
+                document.getElementById('kpi-top-clinica').textContent = topClinic;
+                document.getElementById('kpi-sexo-ratio').textContent = `${formatPercent(resumo?.sexo_m_pct)} : ${formatPercent(resumo?.sexo_f_pct)}`;
             } catch (e) {
                 console.error('Erro ao popular KPIs:', e);
             }
