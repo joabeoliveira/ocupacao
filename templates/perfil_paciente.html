@@ -1480,6 +1480,8 @@
         // Export PDF
         async function exportPDF() {
             try {
+                console.log('Iniciando exportação PDF...');
+                
                 // Collect KPIs
                 const kpis = [
                     {label: 'Pacientes Únicos', value: document.getElementById('kpi-pacientes')?.textContent || '—'},
@@ -1491,6 +1493,7 @@
                     {label: 'Top Clínica', value: document.getElementById('kpi-top-clinica')?.textContent || '—'},
                     {label: 'M% : F%', value: document.getElementById('kpi-sexo-ratio')?.textContent || '—'}
                 ];
+                console.log('KPIs coletados:', kpis.length);
 
                 // Collect charts as base64
                 const charts = [];
@@ -1506,10 +1509,18 @@
                 for (const {id, title} of chartIds) {
                     const canvas = document.getElementById(id);
                     if (canvas) {
-                        const imageData = canvas.toDataURL('image/png');
-                        charts.push({title, image: imageData});
+                        try {
+                            const imageData = canvas.toDataURL('image/png');
+                            charts.push({title, image: imageData});
+                            console.log(`Gráfico ${id}: ${Math.round(imageData.length/1024)}KB`);
+                        } catch (err) {
+                            console.error(`Erro ao capturar ${id}:`, err);
+                        }
+                    } else {
+                        console.warn(`Canvas ${id} não encontrado`);
                     }
                 }
+                console.log('Gráficos coletados:', charts.length);
 
                 // Prepare payload
                 const payload = {
@@ -1518,6 +1529,9 @@
                     kpis,
                     charts
                 };
+                
+                const payloadSize = JSON.stringify(payload).length;
+                console.log(`Tamanho do payload: ${Math.round(payloadSize/1024)}KB`);
 
                 // Send to backend
                 const response = await fetch('/api/export/pdf', {
@@ -1526,7 +1540,13 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) throw new Error('Erro ao gerar PDF');
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro do servidor:', errorText);
+                    throw new Error(`Erro ao gerar PDF: ${response.status}`);
+                }
 
                 // Download PDF
                 const blob = await response.blob();
