@@ -5,7 +5,7 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Instala dependências do sistema necessárias para compilar algumas libs python
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
