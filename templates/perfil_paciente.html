@@ -838,6 +838,9 @@
                 await loadComplementaryCharts();
                 await loadComplementaryKpis();
 
+                // Add export buttons to all charts
+                setTimeout(addChartExportButtons, 300);
+
                 // Load Table
                 await loadTable();
 
@@ -1622,16 +1625,27 @@
 
         // Add chart export buttons
         function addChartExportButtons() {
+            console.log('Adicionando botões de exportação aos gráficos...');
             const chartContainers = [
                 'chart-serie-temporal', 'chart-sexo', 'chart-faixa-etaria',
-                'chart-hist-permanencia', 'chart-top-clinicas', 'chart-permanencia-clinica'
+                'chart-hist-permanencia', 'chart-top-clinicas', 'chart-permanencia-clinica',
+                'chart-impedimentos-serie', 'chart-impedimentos-clinica'
             ];
 
+            let addedCount = 0;
             chartContainers.forEach(chartId => {
                 const canvas = document.getElementById(chartId);
-                if (!canvas) return;
+                if (!canvas) {
+                    console.log(`Canvas ${chartId} não encontrado`);
+                    return;
+                }
 
                 const container = canvas.parentElement;
+                
+                // Remove botões existentes se houver
+                const existing = container.querySelector('.chart-export-buttons');
+                if (existing) existing.remove();
+                
                 container.style.position = 'relative';
 
                 // Create export button group
@@ -1642,7 +1656,7 @@
                     right: 10px;
                     display: flex;
                     gap: 5px;
-                    opacity: 0;
+                    opacity: 0.7;
                     transition: opacity 0.2s;
                     z-index: 100;
                 `;
@@ -1691,23 +1705,24 @@
                 btnGroup.appendChild(copyBtn);
                 btnGroup.appendChild(downloadBtn);
                 container.appendChild(btnGroup);
+                addedCount++;
+                console.log(`Botões adicionados ao gráfico: ${chartId}`);
 
                 // Show/hide buttons on hover
                 container.addEventListener('mouseenter', () => {
                     btnGroup.style.opacity = '1';
                 });
                 container.addEventListener('mouseleave', () => {
-                    btnGroup.style.opacity = '0';
+                    btnGroup.style.opacity = '0.7';
                 });
             });
+            console.log(`Total de gráficos com botões: ${addedCount}/${chartContainers.length}`);
         }
 
         // Initial Load
         window.addEventListener('load', () => {
             loadClinicasFilter();
             loadData();
-            // Add export buttons after charts are rendered
-            setTimeout(addChartExportButtons, 1000);
         });
     </script>
 </body>
