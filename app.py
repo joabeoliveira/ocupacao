@@ -2124,14 +2124,18 @@ def tempo_permanencia():
 def export_pdf():
     """Generate PDF report from dashboard data (KPIs + charts as base64 images)."""
     try:
+        print("=== Iniciando geração de PDF ===", flush=True)
         data = request.get_json()
         if not data:
+            print("Erro: Nenhum dado recebido", flush=True)
             return jsonify({"error": "No data provided"}), 400
 
+        print(f"Dados recebidos: {len(str(data))} caracteres", flush=True)
         page_title = data.get('page_title', 'NIR Dashboard - Relatório')
         filters = data.get('filters', {})
         kpis = data.get('kpis', [])
         charts = data.get('charts', [])
+        print(f"KPIs: {len(kpis)}, Gráficos: {len(charts)}", flush=True)
         
         # Build filter summary text
         filter_text = []
@@ -2283,8 +2287,16 @@ def export_pdf():
 </html>
 """
 
+        print("HTML gerado com sucesso", flush=True)
+        
         # Generate PDF
-        pdf_bytes = HTML(string=html_content).write_pdf()
+        try:
+            print("Iniciando conversão para PDF...", flush=True)
+            pdf_bytes = HTML(string=html_content).write_pdf()
+            print(f"PDF gerado: {len(pdf_bytes)} bytes", flush=True)
+        except Exception as pdf_error:
+            print(f"Erro na conversão WeasyPrint: {pdf_error}", flush=True)
+            raise
         
         # Create response
         response = make_response(pdf_bytes)
@@ -2292,10 +2304,13 @@ def export_pdf():
         filename = f"relatorio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         response.headers['Content-Disposition'] = f'attachment; filename={filename}'
         
+        print("PDF enviado com sucesso", flush=True)
         return response
 
     except Exception as e:
-        print(f"Erro ao gerar PDF: {e}", flush=True)
+        print(f"ERRO ao gerar PDF: {type(e).__name__}: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
