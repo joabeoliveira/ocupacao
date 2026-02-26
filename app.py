@@ -746,8 +746,13 @@ def api_emergencia_stats():
                 params['periodo_inicio'] = periodo_inicio
                 params['periodo_fim'] = periodo_fim
             elif not periodo_inicio and not periodo_fim and not mes:
-                # Se não tem filtros de data, usa últimos 30 dias
-                where_conditions.append("data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)")
+                # Se não tem filtros de data, usa última data disponível
+                sql_last_date = text("SELECT MAX(data_referencia) as ultima_data FROM historico_ocupacao_completo")
+                ultima_data = conn.execute(sql_last_date).scalar()
+                if not ultima_data:
+                    return {"error": "Sem dados disponíveis"}, 404
+                where_conditions.append("data_referencia = :ultima_data")
+                params['ultima_data'] = ultima_data
             
             # Filtro de mês
             if mes:
@@ -1152,6 +1157,118 @@ def api_emergencia_pacientes():
                 "per_page": per_page,
                 "total_pages": (total_count + per_page - 1) // per_page
             }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/emergencia/export')
+def api_emergencia_export():
+    """Exporta dados dos pacientes de emergência para Excel"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        # Captura filtros
+        enfermaria = request.args.get('enfermaria')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        
+        with engine.connect() as conn:
+            # Monta condições WHERE
+            where_conditions = []
+            params = {}
+            
+            # FILTRO PRINCIPAL: Apenas enfermarias de emergência
+            ward_list = "', '".join(EMERGENCY_WARDS)
+            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            
+            # Filtro de enfermaria específica
+            if enfermaria and enfermaria in EMERGENCY_WARDS:
+                where_conditions = [f"nome_enfermaria = :enfermaria"]
+                params['enfermaria'] = enfermaria
+            
+            # Filtro de período
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            elif not periodo_inicio and not periodo_fim and not mes:
+                # Se não tem filtros de data, usa última data
+                sql_last_date = text("SELECT MAX(data_referencia) as ultima_data FROM historico_ocupacao_completo")
+                ultima_data = conn.execute(sql_last_date).scalar()
+                if not ultima_data:
+                    return {"error": "Sem dados disponíveis"}, 404
+                where_conditions.append("data_referencia = :ultima_data")
+                params['ultima_data'] = ultima_data
+            
+            # Filtro de mês
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
+                ano = conn.execute(sql_year).scalar()
+                if ano:
+                    where_conditions.append("YEAR(data_referencia) = :ano")
+                    params['ano'] = ano
+            
+            where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            # Query para buscar pacientes ocupados
+            sql_export = text(f"""
+                SELECT 
+                    nome_paciente as paciente,
+                    prontuario,
+                    sexo,
+                    idade,
+                    nome_enfermaria as enfermaria,
+                    DATE_FORMAT(data_internacao, '%d/%m/%Y') as data_internacao,
+                    TIMESTAMPDIFF(DAY, data_internacao, data_referencia) as dias_permanencia,
+                    status_leito,
+                    tipo_leito,
+                    DATE_FORMAT(data_referencia, '%d/%m/%Y') as data_referencia
+                FROM historico_ocupacao_completo
+                WHERE status_leito = 'OCUPADO'
+                    AND nome_paciente IS NOT NULL
+                    AND nome_paciente != ''
+                    {where_clause}
+                ORDER BY nome_enfermaria, dias_permanencia DESC
+            """)
+            
+            rows = conn.execute(sql_export, params).mappings().all()
+            
+            if not rows:
+                return {"error": "Sem dados para exportar"}, 404
+            
+            # Converte para DataFrame
+            df = pd.DataFrame([{
+                'Paciente': r['paciente'],
+                'Prontuário': r['prontuario'],
+                'Sexo': r['sexo'],
+                'Idade': int(r['idade']) if r['idade'] is not None else None,
+                'Enfermaria': r['enfermaria'],
+                'Data Internação': r['data_internacao'],
+                'Dias Permanência': int(r['dias_permanencia']) if r['dias_permanencia'] is not None else 0,
+                'Status Leito': r['status_leito'],
+                'Tipo Leito': r['tipo_leito'],
+                'Data Referência': r['data_referencia']
+            } for r in rows])
+            
+            # Cria arquivo Excel
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Emergência')
+            output.seek(0)
+            
+            # Nome do arquivo com data
+            filename = f"emergencia_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            
+            return send_file(
+                output,
+                download_name=filename,
+                as_attachment=True,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
     except Exception as e:
         return {"error": str(e)}, 500
 

@@ -220,6 +220,11 @@
                                 <i class="fas fa-filter mr-2"></i>
                                 Filtros
                             </button>
+                            <button onclick="exportToExcel()" 
+                                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition">
+                                <i class="fas fa-download mr-2"></i>
+                                Export Excel
+                            </button>
                             <button onclick="refreshData()" 
                                 class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded transition">
                                 <i class="fas fa-sync-alt mr-2"></i>
@@ -672,6 +677,11 @@
             } else {
                 indicator.classList.add('hidden');
             }
+        }
+
+        function exportToExcel() {
+            const params = new URLSearchParams(currentFilters);
+            window.location.href = `/api/emergencia/export?${params}`;
         }
 
         async function loadStats() {
