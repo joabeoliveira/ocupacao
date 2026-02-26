@@ -1,15 +1,15 @@
 # Project Status — NIR Dashboard: Perfil do Paciente
 
-Last updated: 2026-02-24
+Last updated: 2026-02-25
 
 ## Resumo Executivo
 
 | Aspecto | Status |
 |--------|--------|
-| **Atual** | Sprint 2 (KPIs Avançados) **COMPLETO** ✅ |
+| **Atual** | Sprint 3 (Export PDF) **EM ANDAMENTO** ⚠️ |
 | **Branch** | `feature/perfil-paciente` |
-| **Commits** | 7 commits (Sprint 1 + Sprint 2) |
-| **Deploy** | Pronto para tag `v3.4.0-perfil-s2` |
+| **Commits** | +Sprint 3 (PDF export + ajustes infra) |
+| **Deploy** | Em teste (EasePanel) |
 
 ---
 
@@ -99,9 +99,33 @@ Last updated: 2026-02-24
 - **index.html:** Menu atualizado (removido submenu perfil_paciente)
 
 ### Dependencies
-- Backend: Flask, SQLAlchemy, pandas, openpyxl
+- Backend: Flask, SQLAlchemy, pandas, openpyxl, weasyprint, pydyf
 - Frontend: Tailwind CSS, Chart.js 3.x, chartjs-plugin-datalabels@2
 - Database: MySQL (`historico_ocupacao_completo` table)
+
+---
+
+## Sprint 3 (Export PDF) — EM ANDAMENTO ⚠️
+
+### Entregas Backend
+- **`/api/export/pdf`** — endpoint para gerar PDF com KPIs + graficos (base64)
+- HTML PDF com layout A4, grid de KPIs, blocos de graficos e filtros aplicados
+- Logs detalhados para diagnostico de falhas na geracao
+
+### Entregas Frontend
+- Botao **Export PDF** em `perfil_paciente`
+- Captura de 8 KPIs + 6 graficos com alta resolucao (2x)
+- Ajuste temporario de cores para texto dos graficos no PDF
+- Botao copiar/baixar grafico por grafico (hover)
+
+### Infra / Deploy
+- Dockerfile: dependencias de sistema para WeasyPrint (pango, cairo, gdk-pixbuf, fonts)
+- Dependencias fixadas: `weasyprint==58.1`, `pydyf==0.6.0`
+
+### Status
+- PDF gerando com sucesso apos ajuste de versoes
+- Qualidade de texto/legenda melhorada (cores escuras e 2x)
+- Copy/Download por grafico em validacao
 
 ---
 
@@ -112,6 +136,7 @@ Last updated: 2026-02-24
 - [x] Null handling robusto
 - [x] Paginação funciona (perfil_paciente/tabela)
 - [x] Export XLSX inclui todas colunas
+- [x] Endpoint PDF responde com arquivo
 
 ### ✅ Frontend
 - [x] 3 tabs carregam corretamente
@@ -121,6 +146,8 @@ Last updated: 2026-02-24
 - [x] Todas as cores = branco para inputs
 - [x] Botões "Filtros" padronizados todas páginas
 - [x] Chart labels visíveis (datalabels enabled)
+- [x] Export PDF com graficos e KPIs
+- [x] Captura em alta resolucao para PDF
 
 ### ✅ UX/UI
 - [x] Sem erros de console
@@ -135,8 +162,9 @@ Last updated: 2026-02-24
 
 | Hash | Mensagem | Data |
 |------|----------|------|
-| 5f2343c | Fix: Enable datalabels plugin on all Chart instances | 2026-02-24 |
-| 1d48895 | Sprint 2: Add advanced KPIs cards and charts (complementary tab) | 2026-02-24 |
+| 8e3b203 | Fix: Use dark colors for chart text when exporting to PDF | 2026-02-25 |
+| c167600 | Improve: Capture charts in high resolution (2x) for better PDF quality | 2026-02-25 |
+| c584801 | Fix: Pin pydyf to 0.6.0 and downgrade WeasyPrint to 58.1 | 2026-02-25 |
 | ... | Auth commits Sprint 1 | 2026-02-24 |
 
 ---
@@ -147,15 +175,18 @@ Last updated: 2026-02-24
 - **2026-02-24** — Fix: datalabels.enabled adicionado a 17 Chart instances (perfil_paciente, disponibilidade, tempo_permanencia)
 - **2026-02-24** — UI/UX: Padronização filtros, inputs brancos, dropdown clínica, layout reorganizado
 - **2026-02-24** — CODE QUALITY: Todos os gráficos com valores visíveis para facilitar leitura
+- **2026-02-25** — Sprint 3 iniciado: PDF export com KPIs + graficos no perfil_paciente
+- **2026-02-25** — Fix: compatibilidade WeasyPrint/pydyf + dependencias de sistema no Dockerfile
+- **2026-02-25** — UX: captura de graficos em alta resolucao + texto escuro no PDF
 
 ---
 
-## Preparação para Deploy
+## Preparacao para Deploy
 
 ### Tag recomendada
 ```bash
-git tag -a v3.4.0-perfil-s2 -m "Sprint 2: Complete - KPIs avançados, 8 endpoints, datalabels"
-git push origin v3.4.0-perfil-s2
+git tag -a v3.5.0-perfil-s3 -m "Sprint 3: Export PDF com graficos e KPIs"
+git push origin v3.5.0-perfil-s3
 ```
 
 ### Requerimentos de Ambiente
@@ -178,7 +209,7 @@ curl http://api.example.com/api/version
 
 1. **Performance:** Implementar cache/redis para métricas agregadas
 2. **Alertas:** Notificações quando KPIs excedem thresholds
-3. **Export:** Adicionar PDF com gráficos + relatório
+3. **Export:** Expandir PDF para outras paginas (painel, disponibilidade, tempo_permanencia)
 4. **Mobile:** Otimizar responsive para tablets (landscape)
 5. **Testes:** Cobertura automatizada (unit + integration)
 6. **Analytics:** Dashboard com eventos de uso (user behavior tracking)

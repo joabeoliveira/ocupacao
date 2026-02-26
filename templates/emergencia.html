@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ocupação de Leitos - NIR Dashboard</title>
+    <title>Emergência Referenciada - NIR Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-            tailwind.config = {
-                darkMode: 'class',
-                theme: {
-                    extend: {
-                        colors: {
-                            "primary": "#0b72d9",
-                            "background-light": "#f7fbff",
-                            "background-dark": "#0f1724",
-                            "surface-light": "#ffffff",
-                            "surface-dark": "#111827",
-                            "text-primary-light": "#0b1724",
-                            "text-primary-dark": "#e6eef8",
-                            "text-secondary-light": "#4b5563",
-                            "text-secondary-dark": "#9fb6d8",
-                        }
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0b72d9",
+                        "background-light": "#f7fbff",
+                        "background-dark": "#0f1724",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#111827",
+                        "text-primary-light": "#0b1724",
+                        "text-primary-dark": "#e6eef8",
+                        "text-secondary-light": "#4b5563",
+                        "text-secondary-dark": "#9fb6d8",
                     }
                 }
             }
-        </script>
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -131,12 +131,6 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
-        .progress-ring {
-            transform: rotate(-90deg);
-        }
-        .progress-ring-circle {
-            transition: stroke-dashoffset 0.5s ease;
-        }
     </style>
 </head>
 <body class="font-sans" style="background-color: var(--bg-primary);">
@@ -161,13 +155,13 @@
             <nav class="flex-1 py-6">
                 <ul class="space-y-2">
                     <li>
-                        <a href="/painel" class="flex items-center px-6 py-3 bg-blue-800 rounded transition">
+                        <a href="/painel" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
                             <i class="fas fa-bed mr-3"></i>
                             Ocupação de Leitos
                         </a>
                     </li>
                     <li>
-                        <a href="/emergencia" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition">
+                        <a href="/emergencia" class="flex items-center px-6 py-3 bg-blue-800 rounded transition">
                             <i class="fas fa-ambulance mr-3"></i>
                             Emergência Referenciada
                         </a>
@@ -208,8 +202,8 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <h1 class="text-white font-semibold text-2xl">
-                                <i class="fas fa-chart-bar mr-2"></i>
-                                Painel de Ocupação de Leitos
+                                <i class="fas fa-ambulance mr-2"></i>
+                                Emergência Referenciada HFB/GHC
                             </h1>
                             <div id="filters-active" class="text-sm text-gray-400 mt-1 hidden">
                                 <i class="fas fa-filter mr-1"></i>
@@ -239,19 +233,22 @@
                 <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 hidden animate-fade-in border border-gray-700">
                     <h3 class="text-lg font-bold text-white mb-4">
                         <i class="fas fa-filter mr-2 text-blue-400"></i>
-                        Filtros Avançados
+                        Filtros de Emergência
                     </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">
-                                <i class="fas fa-building mr-1"></i>
-                                Prédio
+                                <i class="fas fa-hospital-user mr-1"></i>
+                                Enfermaria
                             </label>
-                            <select id="filter-predio"
+                            <select id="filter-enfermaria"
                                 class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">Todos</option>
-                                <option value="1">Prédio 1</option>
-                                <option value="2">Prédio 2</option>
+                                <option value="">Todas</option>
+                                <option value="CLINICA REFERENCIADA">Clínica Referenciada</option>
+                                <option value="CIRURGICA REFERENCIADA">Cirúrgica Referenciada</option>
+                                <option value="CIRURGICA REFERENCIADA - FEMININA">Cirúrgica Feminina</option>
+                                <option value="CIRURGICA REFERENCIADA - MASCULINA">Cirúrgica Masculina</option>
+                                <option value="CLINICA REFERENCIADA - PED">Clínica Pediátrica</option>
                             </select>
                         </div>
                         <div>
@@ -292,16 +289,6 @@
                                 <option value="12">Dezembro</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
-                                <i class="fas fa-hospital-user mr-1"></i>
-                                Clínica
-                            </label>
-                            <select id="filter-clinica"
-                                class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">Todas</option>
-                            </select>
-                        </div>
                     </div>
                     <div class="flex gap-2 mt-4">
                         <button onclick="applyFilters()" 
@@ -319,8 +306,7 @@
 
                 <!-- Loading Skeleton -->
                 <div id="loading-skeleton" class="space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div class="skeleton h-28 rounded-lg"></div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="skeleton h-28 rounded-lg"></div>
                         <div class="skeleton h-28 rounded-lg"></div>
                         <div class="skeleton h-28 rounded-lg"></div>
@@ -331,153 +317,219 @@
 
                 <!-- Stats Cards -->
                 <div id="stats-section" class="hidden">
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6 animate-fade-in">
-                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-blue-500 card-hover border border-gray-700">
+                    <!-- Primary Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 animate-fade-in">
+                        <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg p-6 shadow-2xl text-white card-hover">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-gray-500 text-xs font-bold uppercase mb-2">
-                                        <i class="fas fa-user-injured mr-1"></i>
+                                    <div class="text-white text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-procedures mr-1"></i>
                                         Ocupados
                                     </div>
-                                    <div class="text-4xl font-bold text-blue-400" id="stat-ocupados">0</div>
+                                    <div class="text-4xl font-bold" id="stat-ocupados">0</div>
                                 </div>
-                                <div class="text-blue-500 text-3xl">
-                                    <i class="fas fa-procedures"></i>
+                                <div class="text-white opacity-50 text-3xl">
+                                    <i class="fas fa-user-injured"></i>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-green-500 card-hover border border-gray-700">
+                        <div class="bg-gradient-to-br from-green-600 to-green-800 rounded-lg p-6 shadow-2xl text-white card-hover">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">
+                                    <div class="text-white text-xs font-bold uppercase mb-2">
                                         <i class="fas fa-bed mr-1"></i>
                                         Livres
                                     </div>
-                                    <div class="text-4xl font-bold text-green-400" id="stat-livres">0</div>
+                                    <div class="text-4xl font-bold" id="stat-livres">0</div>
                                 </div>
-                                <div class="text-green-500 text-3xl">
+                                <div class="text-white opacity-50 text-3xl">
                                     <i class="fas fa-check-circle"></i>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-yellow-500 card-hover border border-gray-700">
+                        <div class="bg-gradient-to-br from-red-600 to-red-800 rounded-lg p-6 shadow-2xl text-white card-hover">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">
-                                        <i class="fas fa-exchange-alt mr-1"></i>
-                                        Cedidos
-                                    </div>
-                                    <div class="text-4xl font-bold text-yellow-400" id="stat-cedidos">0</div>
-                                </div>
-                                <div class="text-yellow-500 text-3xl">
-                                    <i class="fas fa-hands-helping"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-red-500 card-hover border border-gray-700">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">
-                                        <i class="fas fa-tools mr-1"></i>
+                                    <div class="text-white text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-ban mr-1"></i>
                                         Impedidos
                                     </div>
-                                    <div class="text-4xl font-bold text-red-400" id="stat-impedidos">0</div>
+                                    <div class="text-4xl font-bold" id="stat-impedidos">0</div>
                                 </div>
-                                <div class="text-red-500 text-3xl">
-                                    <i class="fas fa-ban"></i>
+                                <div class="text-white opacity-50 text-3xl">
+                                    <i class="fas fa-tools"></i>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-purple-500 card-hover border border-gray-700">
+                        <div class="bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg p-6 shadow-2xl text-white card-hover">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-gray-400 text-xs font-bold uppercase mb-2">
-                                        <i class="fas fa-clock mr-1"></i>
-                                        Reservados
+                                    <div class="text-white text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-percentage mr-1"></i>
+                                        Taxa Ocupação
                                     </div>
-                                    <div class="text-4xl font-bold text-purple-400" id="stat-reservados">0</div>
+                                    <div class="text-4xl font-bold" id="stat-taxa">0%</div>
                                 </div>
-                                <div class="text-purple-500 text-3xl">
-                                    <i class="fas fa-bookmark"></i>
+                                <div class="text-white opacity-50 text-3xl">
+                                    <i class="fas fa-chart-pie"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Secondary Stats -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 animate-fade-in">
-                        <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg p-6 shadow-lg text-white card-hover">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 animate-fade-in">
+                        <div class="bg-gradient-to-br from-yellow-600 to-yellow-800 rounded-lg p-6 shadow-2xl text-white card-hover">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-white text-sm font-semibold uppercase mb-2">Taxa de Ocupação Geral</div>
-                                    <div class="text-3xl font-bold" id="taxa-geral">0%</div>
+                                    <div class="text-white text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-child mr-1"></i>
+                                        Pediátrico Ocupado
+                                    </div>
+                                    <div class="text-3xl font-bold">
+                                        <span id="stat-pediatrico">0</span>
+                                        <span class="text-xl opacity-75">/ <span id="stat-pediatrico-total">0</span></span>
+                                    </div>
                                 </div>
-                                <svg class="progress-ring" width="60" height="60">
-                                    <circle class="text-white opacity-30" stroke="currentColor" stroke-width="4" 
-                                        fill="transparent" r="26" cx="30" cy="30"/>
-                                    <circle id="progress-ring-geral" class="progress-ring-circle text-white" stroke="currentColor" 
-                                        stroke-width="4" fill="transparent" r="26" cx="30" cy="30"
-                                        stroke-dasharray="163.36" stroke-dashoffset="163.36"/>
-                                </svg>
+                                <div class="text-white opacity-50 text-3xl">
+                                    <i class="fas fa-baby"></i>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-lg p-6 shadow-lg text-white card-hover">
+                        <div class="bg-gradient-to-br from-orange-600 to-orange-800 rounded-lg p-6 shadow-2xl text-white card-hover">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-white text-sm font-semibold uppercase mb-2">% Leitos Impedidos</div>
-                                    <div class="text-3xl font-bold" id="taxa-impedidos">0%</div>
+                                    <div class="text-white text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-hourglass-half mr-1"></i>
+                                        Tempo Médio
+                                    </div>
+                                    <div class="text-3xl font-bold">
+                                        <span id="stat-tempo-medio">0</span>
+                                        <span class="text-lg opacity-75">dias</span>
+                                    </div>
                                 </div>
-                                <svg class="progress-ring" width="60" height="60">
-                                    <circle class="text-white opacity-30" stroke="currentColor" stroke-width="4" 
-                                        fill="transparent" r="26" cx="30" cy="30"/>
-                                    <circle id="progress-ring-impedidos" class="progress-ring-circle text-white" stroke="currentColor" 
-                                        stroke-width="4" fill="transparent" r="26" cx="30" cy="30"
-                                        stroke-dasharray="163.36" stroke-dashoffset="163.36"/>
-                                </svg>
+                                <div class="text-white opacity-50 text-3xl">
+                                    <i class="fas fa-clock"></i>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="bg-gradient-to-br from-gray-600 to-gray-800 rounded-lg p-6 shadow-lg text-white card-hover">
+                        <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-lg p-6 shadow-2xl text-white card-hover">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-white text-sm font-semibold uppercase mb-2">Total de Leitos</div>
-                                    <div class="text-3xl font-bold" id="stat-total">0</div>
+                                    <div class="text-white text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-sync-alt mr-1"></i>
+                                        Rotatividade
+                                    </div>
+                                    <div class="text-4xl font-bold" id="stat-rotatividade">0</div>
                                 </div>
-                                <div class="text-white text-4xl">
-                                    <i class="fas fa-hospital"></i>
+                                <div class="text-white opacity-50 text-3xl">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg p-6 shadow-2xl text-white card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-white text-xs font-bold uppercase mb-2">
+                                        <i class="fas fa-hospital mr-1"></i>
+                                        Total Leitos
+                                    </div>
+                                    <div class="text-4xl font-bold" id="stat-total">0</div>
+                                </div>
+                                <div class="text-white opacity-50 text-3xl">
+                                    <i class="fas fa-building"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Charts -->
-                    <div class="grid grid-cols-1 gap-6 mb-6">
+                    <!-- Charts Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Evolução Temporal -->
                         <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
                             <h3 class="font-bold text-white mb-4 text-lg">
                                 <i class="fas fa-chart-line mr-2 text-blue-400"></i>
-                                Evolução Mensal da Ocupação
+                                Evolução da Taxa de Ocupação
                             </h3>
                             <div style="height: 320px">
-                                <canvas id="grafico-evolucao"></canvas>
+                                <canvas id="chart-evolucao"></canvas>
                             </div>
                         </div>
 
+                        <!-- Ocupação por Enfermaria -->
                         <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
                             <h3 class="font-bold text-white mb-4 text-lg">
                                 <i class="fas fa-chart-bar mr-2 text-green-400"></i>
-                                Taxa de Ocupação por Clínica
+                                Ocupação por Enfermaria
                             </h3>
-                            <div style="height: 380px">
-                                <canvas id="grafico-clinica"></canvas>
+                            <div style="height: 320px">
+                                <canvas id="chart-enfermarias"></canvas>
                             </div>
                         </div>
 
-                        <!-- Impedimentos Chart moved to Disponibilidade page -->
+                        <!-- Status ao Longo do Tempo -->
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-layer-group mr-2 text-purple-400"></i>
+                                Status ao Longo do Tempo
+                            </h3>
+                            <div style="height: 320px">
+                                <canvas id="chart-status-serie"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Distribuição Cirúrgica vs Clínica -->
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                            <h3 class="font-bold text-white mb-4 text-lg">
+                                <i class="fas fa-chart-pie mr-2 text-orange-400"></i>
+                                Distribuição Cirúrgica vs Clínica
+                            </h3>
+                            <div style="height: 320px">
+                                <canvas id="chart-tipo-distribuicao"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Pacientes -->
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                        <h3 class="font-bold text-white mb-4 text-lg">
+                            <i class="fas fa-users mr-2 text-blue-400"></i>
+                            Pacientes Internados na Emergência
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-700 text-white">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left">Nome</th>
+                                        <th class="px-4 py-3 text-left">Sexo</th>
+                                        <th class="px-4 py-3 text-left">Idade</th>
+                                        <th class="px-4 py-3 text-left">Enfermaria</th>
+                                        <th class="px-4 py-3 text-left">Data Internação</th>
+                                        <th class="px-4 py-3 text-left">Dias</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-pacientes" class="text-gray-300">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="pagination" class="flex justify-between items-center mt-4 text-gray-400">
+                            <button id="btn-prev" onclick="loadPacientesTable(currentPage - 1)" 
+                                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-chevron-left mr-2"></i>Anterior
+                            </button>
+                            <span id="pagination-info">Página 1 de 1</span>
+                            <button id="btn-next" onclick="loadPacientesTable(currentPage + 1)" 
+                                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                Próxima<i class="fas fa-chevron-right ml-2"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -501,17 +553,17 @@
             font: { size: 10, weight: '600' },
             clamp: true,
             clip: true,
-            anchor: function(context) {
-                return context.chart.options.indexAxis === 'y' ? 'end' : 'end';
-            },
-            align: function(context) {
-                return context.chart.options.indexAxis === 'y' ? 'right' : 'top';
-            },
+            anchor: 'end',
+            align: 'top',
             formatter: formatDataLabel
         };
+
         let evolucaoChart = null;
-        let clinicaChart = null;
+        let enfermariasChart = null;
+        let statusSerieChart = null;
+        let tipoDistribuicaoChart = null;
         let currentFilters = {};
+        let currentPage = 1;
 
         // Theme toggle
         function toggleTheme() {
@@ -522,16 +574,16 @@
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             
-            // Update icon
             const icon = document.getElementById('theme-icon');
             icon.className = newTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
             
-            // Reload charts with new theme colors
+            // Reload charts
             if (evolucaoChart) loadEvolucaoChart();
-            if (clinicaChart) loadClinicaChart();
+            if (enfermariasChart) loadEnfermariasChart();
+            if (statusSerieChart) loadStatusSerieChart();
+            if (tipoDistribuicaoChart) loadTipoDistribuicaoChart();
         }
         
-        // Load theme from localStorage
         function loadTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
@@ -549,70 +601,64 @@
             
             sidebar.classList.toggle('sidebar-hidden');
             overlay.classList.toggle('active');
-            
-            if (sidebar.classList.contains('sidebar-hidden')) {
-                icon.className = 'fas fa-bars';
-            } else {
-                icon.className = 'fas fa-times';
-            }
+            icon.className = sidebar.classList.contains('sidebar-hidden') ? 'fas fa-bars' : 'fas fa-times';
         }
         
-        // Initialize mobile menu state
         function initMobileMenu() {
             if (window.innerWidth < 768) {
-                const sidebar = document.getElementById('sidebar');
-                sidebar.classList.add('sidebar-hidden');
+                document.getElementById('sidebar').classList.add('sidebar-hidden');
             }
         }
         
-        // Close mobile menu on window resize to desktop
         window.addEventListener('resize', () => {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('menu-overlay');
             if (window.innerWidth >= 768) {
                 sidebar.classList.remove('sidebar-hidden');
                 overlay.classList.remove('active');
-            } else if (window.innerWidth < 768 && !overlay.classList.contains('active')) {
+            } else if (!overlay.classList.contains('active')) {
                 sidebar.classList.add('sidebar-hidden');
             }
         });
 
-        // Toggle filters panel
         function toggleFilters() {
-            const panel = document.getElementById('filters-panel');
-            panel.classList.toggle('hidden');
+            document.getElementById('filters-panel').classList.toggle('hidden');
         }
 
-        // Apply filters
         function applyFilters() {
             currentFilters = {
-                predio: document.getElementById('filter-predio').value,
+                enfermaria: document.getElementById('filter-enfermaria').value,
                 periodo_inicio: document.getElementById('filter-periodo-inicio').value,
                 periodo_fim: document.getElementById('filter-periodo-fim').value,
-                mes: document.getElementById('filter-mes').value,
-                clinica: document.getElementById('filter-clinica').value
+                mes: document.getElementById('filter-mes').value
             };
             
-            // Remove empty filters
             Object.keys(currentFilters).forEach(key => {
                 if (!currentFilters[key]) delete currentFilters[key];
             });
             
-            // Mostra indicador de filtros ativos
             updateFiltersIndicator();
-            
             refreshData();
             toggleFilters();
         }
 
-        // Update filters indicator
+        function clearFilters() {
+            document.getElementById('filter-enfermaria').value = '';
+            document.getElementById('filter-periodo-inicio').value = '';
+            document.getElementById('filter-periodo-fim').value = '';
+            document.getElementById('filter-mes').value = '';
+            currentFilters = {};
+            updateFiltersIndicator();
+            refreshData();
+        }
+
         function updateFiltersIndicator() {
             const indicator = document.getElementById('filters-active');
             const filtersText = document.getElementById('filters-text');
             
             if (Object.keys(currentFilters).length > 0) {
                 const filterLabels = [];
-                if (currentFilters.predio) filterLabels.push(`Prédio ${currentFilters.predio}`);
+                if (currentFilters.enfermaria) filterLabels.push(`${currentFilters.enfermaria}`);
                 if (currentFilters.periodo_inicio && currentFilters.periodo_fim) {
                     filterLabels.push(`${currentFilters.periodo_inicio} a ${currentFilters.periodo_fim}`);
                 }
@@ -620,7 +666,6 @@
                     const meses = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                     filterLabels.push(`Mês: ${meses[parseInt(currentFilters.mes)]}`);
                 }
-                if (currentFilters.clinica) filterLabels.push(`Clínica: ${currentFilters.clinica}`);
                 
                 filtersText.textContent = `Filtros: ${filterLabels.join(' | ')}`;
                 indicator.classList.remove('hidden');
@@ -629,52 +674,10 @@
             }
         }
 
-        // Clear filters
-        function clearFilters() {
-            document.getElementById('filter-predio').value = '';
-            document.getElementById('filter-periodo-inicio').value = '';
-            document.getElementById('filter-periodo-fim').value = '';
-            document.getElementById('filter-mes').value = '';
-            document.getElementById('filter-clinica').value = '';
-            currentFilters = {};
-            updateFiltersIndicator();
-            refreshData();
-        }
-
-        // Load clinicas for filter
-        async function loadClinicasFilter() {
-            try {
-                const response = await fetch('/api/painel/clinicas');
-                const data = await response.json();
-                
-                if (data.error) return;
-                
-                const select = document.getElementById('filter-clinica');
-                data.labels.forEach(clinica => {
-                    const option = document.createElement('option');
-                    option.value = clinica;
-                    option.textContent = clinica;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Erro ao carregar clínicas para filtro:', error);
-            }
-        }
-
-        // Update progress ring
-        function updateProgressRing(elementId, percent) {
-            const circle = document.getElementById(elementId);
-            const circumference = 163.36;
-            const offset = circumference - (percent / 100 * circumference);
-            circle.style.strokeDashoffset = offset;
-        }
-
-        // Load stats
         async function loadStats() {
             try {
-                // Monta query string com filtros
                 const queryParams = new URLSearchParams(currentFilters).toString();
-                const url = queryParams ? `/api/painel/stats?${queryParams}` : '/api/painel/stats';
+                const url = queryParams ? `/api/emergencia/stats?${queryParams}` : '/api/emergencia/stats';
                 
                 const response = await fetch(url);
                 const stats = await response.json();
@@ -686,19 +689,13 @@
                 
                 document.getElementById('stat-ocupados').textContent = stats.ocupados;
                 document.getElementById('stat-livres').textContent = stats.livres;
-                document.getElementById('stat-cedidos').textContent = stats.cedidos;
                 document.getElementById('stat-impedidos').textContent = stats.impedidos;
-                document.getElementById('stat-reservados').textContent = stats.reservados;
+                document.getElementById('stat-taxa').textContent = stats.taxa_ocupacao + '%';
+                document.getElementById('stat-pediatrico').textContent = stats.pediatrico_ocupados;
+                document.getElementById('stat-pediatrico-total').textContent = stats.pediatrico_total;
+                document.getElementById('stat-tempo-medio').textContent = stats.tempo_medio_permanencia;
+                document.getElementById('stat-rotatividade').textContent = stats.rotatividade;
                 document.getElementById('stat-total').textContent = stats.total;
-                
-                const taxaGeral = ((stats.ocupados / stats.total) * 100).toFixed(1);
-                const taxaImpedidos = ((stats.impedidos / stats.total) * 100).toFixed(1);
-                
-                document.getElementById('taxa-geral').textContent = taxaGeral + '%';
-                document.getElementById('taxa-impedidos').textContent = taxaImpedidos + '%';
-                
-                updateProgressRing('progress-ring-geral', taxaGeral);
-                updateProgressRing('progress-ring-impedidos', taxaImpedidos);
                 
                 document.getElementById('loading-skeleton').classList.add('hidden');
                 document.getElementById('stats-section').classList.remove('hidden');
@@ -707,51 +704,26 @@
             }
         }
 
-        // Load evolução chart
         async function loadEvolucaoChart() {
             try {
-                // Monta query string com filtros
                 const queryParams = new URLSearchParams(currentFilters).toString();
-                const url = queryParams ? `/api/painel/evolucao?${queryParams}` : '/api/painel/evolucao';
+                const url = queryParams ? `/api/emergencia/evolucao?${queryParams}` : '/api/emergencia/evolucao';
                 
                 const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.error) return;
                 
-                const ctx = document.getElementById('grafico-evolucao').getContext('2d');
+                const ctx = document.getElementById('chart-evolucao').getContext('2d');
                 
-                if (evolucaoChart) {
-                    evolucaoChart.destroy();
-                }
+                if (evolucaoChart) evolucaoChart.destroy();
                 
-                // Cores baseadas no tema usando variáveis CSS
                 const theme = document.documentElement.getAttribute('data-theme');
                 const isDark = theme !== 'light';
-                const styles = getComputedStyle(document.documentElement);
-                const chartBlue = styles.getPropertyValue('--chart-blue').trim();
-                const chartText = styles.getPropertyValue('--chart-text').trim();
-                const chartGrid = styles.getPropertyValue('--chart-grid').trim();
                 const lineColor = isDark ? '#60A5FA' : '#2563EB';
-                const gridColor = chartGrid || (isDark ? '#374151' : '#E5E7EB');
-                const textColor = chartText || (isDark ? '#9CA3AF' : '#6B7280');
-                const legendColor = isDark ? '#E5E7EB' : '#374151';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                const textColor = isDark ? '#9CA3AF' : '#6B7280';
                 const bgColor = isDark ? 'rgba(96,165,250,0.12)' : 'rgba(37,99,235,0.20)';
-
-                // Plugin para aplicar sombra sutil sob as linhas/barras
-                const chartShadowPlugin = {
-                    id: 'shadowPlugin',
-                    beforeDatasetsDraw(chart, args, options) {
-                        const ctx = chart.ctx;
-                        ctx.save();
-                        const cfg = chart.config.options.plugins && chart.config.options.plugins.shadow || {};
-                        ctx.shadowColor = cfg.color || (isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)');
-                        ctx.shadowBlur = cfg.blur || 12;
-                    },
-                    afterDatasetsDraw(chart, args, options) {
-                        chart.ctx.restore();
-                    }
-                };
 
                 evolucaoChart = new Chart(ctx, {
                     type: 'line',
@@ -769,7 +741,6 @@
                             pointHoverRadius: 7
                         }]
                     },
-                    plugins: [chartShadowPlugin],
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
@@ -779,9 +750,7 @@
                                 max: 100,
                                 ticks: {
                                     color: textColor,
-                                    callback: function(value) {
-                                        return value + '%';
-                                    }
+                                    callback: value => value + '%'
                                 },
                                 grid: { color: gridColor }
                             },
@@ -791,19 +760,7 @@
                             }
                         },
                         plugins: {
-                            shadow: { color: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)', blur: 12 },
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: { color: legendColor }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.dataset.label + ': ' + context.parsed.y + '%';
-                                    }
-                                }
-                            }
+                            legend: { display: false }
                         }
                     }
                 });
@@ -812,114 +769,238 @@
             }
         }
 
-        // Load clinica chart
-        async function loadClinicaChart() {
+        async function loadEnfermariasChart() {
             try {
-                // Monta query string com filtros
                 const queryParams = new URLSearchParams(currentFilters).toString();
-                const url = queryParams ? `/api/painel/clinicas?${queryParams}` : '/api/painel/clinicas';
+                const url = queryParams ? `/api/emergencia/enfermarias?${queryParams}` : '/api/emergencia/enfermarias';
                 
                 const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.error) return;
                 
-                const ctx = document.getElementById('grafico-clinica').getContext('2d');
+                const ctx = document.getElementById('chart-enfermarias').getContext('2d');
                 
-                if (clinicaChart) {
-                    clinicaChart.destroy();
-                }
+                if (enfermariasChart) enfermariasChart.destroy();
                 
-                // Cores baseadas no tema usando variáveis CSS
                 const theme = document.documentElement.getAttribute('data-theme');
                 const isDark = theme !== 'light';
-                const styles = getComputedStyle(document.documentElement);
-                const chartGreen = styles.getPropertyValue('--chart-green').trim();
-                const chartText = styles.getPropertyValue('--chart-text').trim();
-                const chartGrid = styles.getPropertyValue('--chart-grid').trim();
-                const barColor = isDark ? '#34D399' : '#16A34A';
-                const barBorder = isDark ? '#10B981' : '#15803D';
-                const gridColor = chartGrid || (isDark ? '#374151' : '#E5E7EB');
-                const textColor = chartText || (isDark ? '#9CA3AF' : '#6B7280');
+                const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                const textColor = isDark ? '#9CA3AF' : '#6B7280';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
 
-                const chartShadowPlugin = {
-                    id: 'shadowPlugin',
-                    beforeDatasetsDraw(chart, args, options) {
-                        const ctx = chart.ctx;
-                        ctx.save();
-                        const cfg = chart.config.options.plugins && chart.config.options.plugins.shadow || {};
-                        ctx.shadowColor = cfg.color || (isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)');
-                        ctx.shadowBlur = cfg.blur || 10;
-                    },
-                    afterDatasetsDraw(chart, args, options) {
-                        chart.ctx.restore();
-                    }
-                };
-
-                clinicaChart = new Chart(ctx, {
+                enfermariasChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: data.labels,
                         datasets: [{
-                            label: 'Taxa de Ocupação (%)',
-                            data: data.data,
-                            backgroundColor: isDark ? barColor : 'rgba(22,163,74,0.70)',
-                            borderColor: barBorder,
-                            borderWidth: 1,
-                            maxBarThickness: 28
+                            label: 'Ocupados',
+                            data: data.ocupados,
+                            backgroundColor: colors,
+                            borderWidth: 0
                         }]
                     },
-                    plugins: [chartShadowPlugin],
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
+                            },
+                            x: {
+                                ticks: { color: textColor, maxRotation: 45, minRotation: 45 },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar gráfico de enfermarias:', error);
+            }
+        }
+
+        async function loadStatusSerieChart() {
+            try {
+                const queryParams = new URLSearchParams(currentFilters).toString();
+                const url = queryParams ? `/api/emergencia/status-serie?${queryParams}` : '/api/emergencia/status-serie';
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('chart-status-serie').getContext('2d');
+                
+                if (statusSerieChart) statusSerieChart.destroy();
+                
+                const theme = document.documentElement.getAttribute('data-theme');
+                const isDark = theme !== 'light';
+                const textColor = isDark ? '#9CA3AF' : '#6B7280';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+
+                const datasets = data.datasets.map((ds, idx) => {
+                    const colors = [
+                        { bg: '#3B82F6', border: '#2563EB' },
+                        { bg: '#10B981', border: '#059669' },
+                        { bg: '#EF4444', border: '#DC2626' },
+                        { bg: '#F59E0B', border: '#D97706' },
+                        { bg: '#8B5CF6', border: '#7C3AED' }
+                    ];
+                    return {
+                        label: ds.label,
+                        data: ds.data,
+                        backgroundColor: colors[idx].bg,
+                        borderColor: colors[idx].border,
+                        borderWidth: 1
+                    };
+                });
+
+                statusSerieChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: datasets
+                    },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
                             x: {
+                                stacked: true,
                                 ticks: { color: textColor },
                                 grid: { display: false }
                             },
                             y: {
+                                stacked: true,
                                 beginAtZero: true,
-                                max: 100,
-                                ticks: {
-                                    color: textColor,
-                                    callback: function(value) {
-                                        return value + '%';
-                                    }
-                                },
+                                ticks: { color: textColor },
                                 grid: { color: gridColor }
                             }
                         },
                         plugins: {
-                            shadow: { color: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.06)', blur: 10 },
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return 'Ocupação: ' + context.parsed.y + '%';
-                                    }
-                                }
+                            legend: { display: true, position: 'bottom', labels: { color: textColor } }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar gráfico de status:', error);
+            }
+        }
+
+        async function loadTipoDistribuicaoChart() {
+            try {
+                const queryParams = new URLSearchParams(currentFilters).toString();
+                const url = queryParams ? `/api/emergencia/enfermarias?${queryParams}` : '/api/emergencia/enfermarias';
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) return;
+                
+                // Agregar: Cirúrgica vs Clínica
+                let cirurgica = 0;
+                let clinica = 0;
+                
+                data.labels.forEach((label, idx) => {
+                    if (label.includes('CIRURGICA')) {
+                        cirurgica += data.ocupados[idx];
+                    } else if (label.includes('CLINICA')) {
+                        clinica += data.ocupados[idx];
+                    }
+                });
+                
+                const ctx = document.getElementById('chart-tipo-distribuicao').getContext('2d');
+                
+                if (tipoDistribuicaoChart) tipoDistribuicaoChart.destroy();
+                
+                const theme = document.documentElement.getAttribute('data-theme');
+                const isDark = theme !== 'light';
+                const textColor = isDark ? '#E5E7EB' : '#374151';
+
+                tipoDistribuicaoChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Cirúrgica', 'Clínica'],
+                        datasets: [{
+                            data: [cirurgica, clinica],
+                            backgroundColor: ['#EF4444', '#3B82F6'],
+                            borderWidth: 2,
+                            borderColor: isDark ? '#111827' : '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: textColor }
                             }
                         }
                     }
                 });
             } catch (error) {
-                console.error('Erro ao carregar gráfico de clínicas:', error);
+                console.error('Erro ao carregar gráfico de tipo:', error);
             }
         }
 
-        // Refresh all data
+        async function loadPacientesTable(page = 1) {
+            try {
+                currentPage = page;
+                const queryParams = new URLSearchParams({...currentFilters, page, per_page: 20}).toString();
+                const url = `/api/emergencia/pacientes?${queryParams}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) return;
+                
+                const tbody = document.getElementById('table-pacientes');
+                tbody.innerHTML = '';
+                
+                if (data.pacientes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-center text-gray-500">Nenhum paciente encontrado</td></tr>';
+                } else {
+                    data.pacientes.forEach(p => {
+                        const row = document.createElement('tr');
+                        row.className = 'border-b border-gray-700 hover:bg-gray-700';
+                        row.innerHTML = `
+                            <td class="px-4 py-3">${p.nome}</td>
+                            <td class="px-4 py-3">${p.sexo}</td>
+                            <td class="px-4 py-3">${p.idade}</td>
+                            <td class="px-4 py-3 text-xs">${p.enfermaria}</td>
+                            <td class="px-4 py-3">${p.data_internacao}</td>
+                            <td class="px-4 py-3 font-bold ${p.dias_permanencia > 10 ? 'text-red-400' : 'text-green-400'}">${p.dias_permanencia}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+                
+                document.getElementById('pagination-info').textContent = `Página ${data.page} de ${data.total_pages}`;
+                document.getElementById('btn-prev').disabled = data.page <= 1;
+                document.getElementById('btn-next').disabled = data.page >= data.total_pages;
+            } catch (error) {
+                console.error('Erro ao carregar tabela de pacientes:', error);
+            }
+        }
+
         function refreshData() {
             document.getElementById('stats-section').classList.add('hidden');
             document.getElementById('loading-skeleton').classList.remove('hidden');
             
             loadStats();
             loadEvolucaoChart();
-            loadClinicaChart();
-            // impediments chart moved to Disponibilidade
+            loadEnfermariasChart();
+            loadStatusSerieChart();
+            loadTipoDistribuicaoChart();
+            loadPacientesTable(1);
         }
 
-        // Load version
         async function loadVersion() {
             try {
                 const response = await fetch('/api/version');
@@ -930,19 +1011,17 @@
             }
         }
 
-        // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadTheme();
             initMobileMenu();
             loadVersion();
             loadStats();
             loadEvolucaoChart();
-            loadClinicaChart();
-            // impediments chart moved to Disponibilidade
-            loadClinicasFilter();
+            loadEnfermariasChart();
+            loadStatusSerieChart();
+            loadTipoDistribuicaoChart();
+            loadPacientesTable(1);
         });
-
-        // impediments chart moved to Disponibilidade
     </script>
 </body>
 </html>

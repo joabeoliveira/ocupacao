@@ -83,6 +83,15 @@ DE_PARA = {
     'ESTÁ INSERIDO NO TRS': 'inserido_no_trs'
 }
 
+# --- ENFERMARIAS DE EMERGÊNCIA ---
+EMERGENCY_WARDS = [
+    'CLINICA REFERENCIADA',
+    'CIRURGICA REFERENCIADA',
+    'CIRURGICA REFERENCIADA - FEMININA',
+    'CIRURGICA REFERENCIADA - MASCULINA',
+    'CLINICA REFERENCIADA - PED'
+]
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -698,6 +707,451 @@ def api_painel_impedimentos():
 
             return {"labels": [r['motivo'] for r in rows], "data": [int(r['cnt']) for r in rows]}
 
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+# ========== EMERGÊNCIA ENDPOINTS ==========
+
+@app.route('/api/emergencia/stats')
+def api_emergencia_stats():
+    """Retorna estatísticas do painel de emergência com suporte a filtros"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        # Captura filtros da query string
+        enfermaria = request.args.get('enfermaria')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        
+        with engine.connect() as conn:
+            # Monta condições WHERE dinamicamente
+            where_conditions = []
+            params = {}
+            
+            # FILTRO PRINCIPAL: Apenas enfermarias de emergência
+            ward_list = "', '".join(EMERGENCY_WARDS)
+            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            
+            # Filtro de enfermaria específica
+            if enfermaria and enfermaria in EMERGENCY_WARDS:
+                where_conditions = [f"nome_enfermaria = :enfermaria"]
+                params['enfermaria'] = enfermaria
+            
+            # Filtro de período
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            elif not periodo_inicio and not periodo_fim and not mes:
+                # Se não tem filtros de data, usa últimos 30 dias
+                where_conditions.append("data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)")
+            
+            # Filtro de mês
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+                # Pega o ano da data mais recente
+                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
+                ano = conn.execute(sql_year).scalar()
+                if ano:
+                    where_conditions.append("YEAR(data_referencia) = :ano")
+                    params['ano'] = ano
+            
+            # Monta SQL com WHERE dinâmico
+            where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            # Estatísticas gerais
+            sql_stats = text(f"""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
+                    COALESCE(SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END), 0) as livres,
+                    COALESCE(SUM(CASE WHEN status_leito = 'CEDIDO' THEN 1 ELSE 0 END), 0) as cedidos,
+                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' OR status_leito LIKE '%BLOQUEADO%' THEN 1 ELSE 0 END), 0) as impedidos,
+                    COALESCE(SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END), 0) as reservados,
+                    COUNT(*) as total
+                FROM historico_ocupacao_completo
+                WHERE 1=1 {where_clause}
+            """)
+            stats = conn.execute(sql_stats, params).mappings().fetchone()
+            
+            ocupados = int(stats['ocupados'])
+            total = int(stats['total'])
+            taxa_ocupacao = round((ocupados / total * 100), 2) if total > 0 else 0
+            
+            # Estatística pediátrica
+            sql_ped = text(f"""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ped_ocupados,
+                    COUNT(*) as ped_total
+                FROM historico_ocupacao_completo
+                WHERE nome_enfermaria = 'CLINICA REFERENCIADA - PED' {where_clause.replace(f"nome_enfermaria IN ('{ward_list}')", '1=1')}
+            """)
+            ped_stats = conn.execute(sql_ped, params).mappings().fetchone()
+            ped_ocupados = int(ped_stats['ped_ocupados'])
+            ped_total = int(ped_stats['ped_total'])
+            
+            # Tempo médio de permanência (apenas ocupados)
+            sql_tempo = text(f"""
+                SELECT 
+                    AVG(TIMESTAMPDIFF(DAY, data_internacao, data_referencia)) as tempo_medio
+                FROM historico_ocupacao_completo
+                WHERE status_leito = 'OCUPADO' 
+                    AND data_internacao IS NOT NULL
+                    AND nome_enfermaria IN ('{ward_list}') {where_clause.replace(f"nome_enfermaria IN ('{ward_list}')", '1=1')}
+            """)
+            tempo_result = conn.execute(sql_tempo, params).scalar()
+            tempo_medio = round(float(tempo_result), 1) if tempo_result else 0
+            
+            # Rotatividade (pacientes distintos / total leitos nos últimos 30 dias)
+            sql_rotatividade = text(f"""
+                SELECT 
+                    COUNT(DISTINCT nome_paciente) as pacientes_distintos
+                FROM historico_ocupacao_completo
+                WHERE status_leito = 'OCUPADO'
+                    AND nome_paciente IS NOT NULL
+                    AND nome_paciente != ''
+                    AND data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)
+                    AND nome_enfermaria IN ('{ward_list}')
+            """)
+            pacientes_distintos = conn.execute(sql_rotatividade).scalar() or 0
+            rotatividade = round((pacientes_distintos / total), 2) if total > 0 else 0
+            
+            return {
+                "ocupados": ocupados,
+                "livres": int(stats['livres']),
+                "cedidos": int(stats['cedidos']),
+                "impedidos": int(stats['impedidos']),
+                "reservados": int(stats['reservados']),
+                "total": total,
+                "taxa_ocupacao": taxa_ocupacao,
+                "pediatrico_ocupados": ped_ocupados,
+                "pediatrico_total": ped_total,
+                "tempo_medio_permanencia": tempo_medio,
+                "rotatividade": rotatividade
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/emergencia/evolucao')
+def api_emergencia_evolucao():
+    """Retorna evolução temporal da taxa de ocupação para emergência"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        # Captura filtros
+        enfermaria = request.args.get('enfermaria')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        
+        with engine.connect() as conn:
+            # Monta condições WHERE
+            where_conditions = []
+            params = {}
+            
+            # FILTRO PRINCIPAL: Apenas enfermarias de emergência
+            ward_list = "', '".join(EMERGENCY_WARDS)
+            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            
+            if enfermaria and enfermaria in EMERGENCY_WARDS:
+                where_conditions = [f"nome_enfermaria = :enfermaria"]
+                params['enfermaria'] = enfermaria
+            
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            elif not mes:
+                # Padrão: últimos 30 dias
+                where_conditions.append("data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)")
+            
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
+                ano = conn.execute(sql_year).scalar()
+                if ano:
+                    where_conditions.append("YEAR(data_referencia) = :ano")
+                    params['ano'] = ano
+            
+            where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            sql_evolucao = text(f"""
+                SELECT 
+                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
+                    COUNT(*) as total
+                FROM historico_ocupacao_completo
+                WHERE 1=1 {where_clause}
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            rows = conn.execute(sql_evolucao, params).mappings().all()
+            
+            labels = [r['dia'] for r in rows]
+            data = [round((r['ocupados'] / r['total'] * 100), 2) if r['total'] > 0 else 0 for r in rows]
+            
+            return {"labels": labels, "data": data}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/emergencia/enfermarias')
+def api_emergencia_enfermarias():
+    """Retorna ocupação por enfermaria de emergência"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        # Captura filtros
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        
+        with engine.connect() as conn:
+            # Monta condições WHERE
+            where_conditions = []
+            params = {}
+            
+            # FILTRO PRINCIPAL: Apenas enfermarias de emergência
+            ward_list = "', '".join(EMERGENCY_WARDS)
+            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            elif not mes:
+                # Padrão: últimos 30 dias
+                where_conditions.append("data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)")
+            
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
+                ano = conn.execute(sql_year).scalar()
+                if ano:
+                    where_conditions.append("YEAR(data_referencia) = :ano")
+                    params['ano'] = ano
+            
+            where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            sql_enfermarias = text(f"""
+                SELECT 
+                    nome_enfermaria,
+                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
+                    COUNT(*) as total
+                FROM historico_ocupacao_completo
+                WHERE 1=1 {where_clause}
+                GROUP BY nome_enfermaria
+                ORDER BY nome_enfermaria
+            """)
+            rows = conn.execute(sql_enfermarias, params).mappings().all()
+            
+            labels = [r['nome_enfermaria'] for r in rows]
+            ocupados = [int(r['ocupados']) for r in rows]
+            totals = [int(r['total']) for r in rows]
+            
+            return {
+                "labels": labels,
+                "ocupados": ocupados,
+                "total": totals
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/emergencia/status-serie')
+def api_emergencia_status_serie():
+    """Retorna série temporal de status dos leitos (para gráfico empilhado)"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        # Captura filtros
+        enfermaria = request.args.get('enfermaria')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        
+        with engine.connect() as conn:
+            # Monta condições WHERE
+            where_conditions = []
+            params = {}
+            
+            # FILTRO PRINCIPAL: Apenas enfermarias de emergência
+            ward_list = "', '".join(EMERGENCY_WARDS)
+            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            
+            if enfermaria and enfermaria in EMERGENCY_WARDS:
+                where_conditions = [f"nome_enfermaria = :enfermaria"]
+                params['enfermaria'] = enfermaria
+            
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            elif not mes:
+                # Padrão: últimos 30 dias
+                where_conditions.append("data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)")
+            
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
+                ano = conn.execute(sql_year).scalar()
+                if ano:
+                    where_conditions.append("YEAR(data_referencia) = :ano")
+                    params['ano'] = ano
+            
+            where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            sql_serie = text(f"""
+                SELECT 
+                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
+                    SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END) as livres,
+                    SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' OR status_leito LIKE '%BLOQUEADO%' THEN 1 ELSE 0 END) as impedidos,
+                    SUM(CASE WHEN status_leito = 'CEDIDO' THEN 1 ELSE 0 END) as cedidos,
+                    SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END) as reservados
+                FROM historico_ocupacao_completo
+                WHERE 1=1 {where_clause}
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            rows = conn.execute(sql_serie, params).mappings().all()
+            
+            labels = [r['dia'] for r in rows]
+            
+            return {
+                "labels": labels,
+                "datasets": [
+                    {
+                        "label": "Ocupado",
+                        "data": [int(r['ocupados']) for r in rows]
+                    },
+                    {
+                        "label": "Livre",
+                        "data": [int(r['livres']) for r in rows]
+                    },
+                    {
+                        "label": "Impedido",
+                        "data": [int(r['impedidos']) for r in rows]
+                    },
+                    {
+                        "label": "Cedido",
+                        "data": [int(r['cedidos']) for r in rows]
+                    },
+                    {
+                        "label": "Reservado",
+                        "data": [int(r['reservados']) for r in rows]
+                    }
+                ]
+            }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/emergencia/pacientes')
+def api_emergencia_pacientes():
+    """Retorna lista paginada de pacientes internados na emergência"""
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+    
+    try:
+        # Paginação
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        offset = (page - 1) * per_page
+        
+        # Filtros
+        enfermaria = request.args.get('enfermaria')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
+        
+        with engine.connect() as conn:
+            # Monta condições WHERE
+            where_conditions = []
+            params = {}
+            
+            # FILTRO PRINCIPAL: Apenas enfermarias de emergência e ocupados
+            ward_list = "', '".join(EMERGENCY_WARDS)
+            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            where_conditions.append("status_leito = 'OCUPADO'")
+            
+            if enfermaria and enfermaria in EMERGENCY_WARDS:
+                where_conditions.append("nome_enfermaria = :enfermaria")
+                params['enfermaria'] = enfermaria
+            
+            if periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            else:
+                # Padrão: última data disponível
+                sql_last_date = text("SELECT MAX(data_referencia) as ultima_data FROM historico_ocupacao_completo")
+                ultima_data = conn.execute(sql_last_date).scalar()
+                if ultima_data:
+                    where_conditions.append("data_referencia = :ultima_data")
+                    params['ultima_data'] = ultima_data
+            
+            if mes:
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                params['mes'] = mes
+            
+            where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            # Count total
+            sql_count = text(f"""
+                SELECT COUNT(DISTINCT CONCAT(nome_paciente, '|', nome_enfermaria)) as total
+                FROM historico_ocupacao_completo
+                WHERE 1=1 {where_clause}
+            """)
+            total_count = conn.execute(sql_count, params).scalar() or 0
+            
+            # Get paginated data
+            params['offset'] = offset
+            params['per_page'] = per_page
+            
+            sql_pacientes = text(f"""
+                SELECT 
+                    nome_paciente,
+                    sexo,
+                    idade,
+                    nome_enfermaria,
+                    data_internacao,
+                    TIMESTAMPDIFF(DAY, data_internacao, data_referencia) as dias_permanencia
+                FROM historico_ocupacao_completo
+                WHERE 1=1 {where_clause}
+                ORDER BY dias_permanencia DESC
+                LIMIT :per_page OFFSET :offset
+            """)
+            rows = conn.execute(sql_pacientes, params).mappings().all()
+            
+            pacientes = []
+            for r in rows:
+                pacientes.append({
+                    "nome": r['nome_paciente'] or 'Não informado',
+                    "sexo": r['sexo'] or '-',
+                    "idade": int(r['idade']) if r['idade'] else 0,
+                    "enfermaria": r['nome_enfermaria'],
+                    "data_internacao": r['data_internacao'].strftime('%d/%m/%Y') if r['data_internacao'] else '-',
+                    "dias_permanencia": int(r['dias_permanencia']) if r['dias_permanencia'] else 0
+                })
+            
+            return {
+                "pacientes": pacientes,
+                "total": total_count,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": (total_count + per_page - 1) // per_page
+            }
     except Exception as e:
         return {"error": str(e)}, 500
 
@@ -2114,6 +2568,9 @@ def perfil_paciente():
 def painel():
     return render_template('painel.html')
 
+@app.route('/emergencia')
+def emergencia():
+    return render_template('emergencia.html')
 
 @app.route('/tempo_permanencia')
 def tempo_permanencia():
