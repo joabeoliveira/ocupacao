@@ -1227,6 +1227,298 @@ def _get_emergencia_range_context(conn, args):
     }
 
 
+def _get_emergencia_profile_snapshot_context(conn, args):
+    enfermaria = args.get('enfermaria')
+    periodo_inicio = args.get('periodo_inicio')
+    periodo_fim = args.get('periodo_fim')
+    mes = args.get('mes')
+
+    ward_list = "', '".join(EMERGENCY_WARDS)
+    base_conditions = [f"nome_enfermaria IN ('{ward_list}')"]
+    base_params = {}
+
+    if enfermaria and enfermaria in EMERGENCY_WARDS:
+        base_conditions = ["nome_enfermaria = :enfermaria"]
+        base_params['enfermaria'] = enfermaria
+
+    selected_date = None
+
+    if periodo_fim:
+        selected_date = periodo_fim
+    elif periodo_inicio:
+        selected_date = periodo_inicio
+    elif mes:
+        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
+        if last_year is not None:
+            month_conditions = list(base_conditions)
+            month_conditions.append("MONTH(data_referencia) = :mes")
+            month_conditions.append("YEAR(data_referencia) = :last_year")
+            month_params = dict(base_params)
+            month_params['mes'] = mes
+            month_params['last_year'] = int(last_year)
+            month_where = " AND ".join(month_conditions) if month_conditions else "1=1"
+            sql_month_last = text(f"SELECT MAX(data_referencia) FROM historico_ocupacao_completo WHERE {month_where}")
+            selected_date = conn.execute(sql_month_last, month_params).scalar()
+
+    if not selected_date:
+        latest_where = " AND ".join(base_conditions) if base_conditions else "1=1"
+        sql_last = text(f"SELECT MAX(data_referencia) FROM historico_ocupacao_completo WHERE {latest_where}")
+        selected_date = conn.execute(sql_last, base_params).scalar()
+
+    if not selected_date:
+        return None
+
+    snapshot_conditions = list(base_conditions)
+    snapshot_conditions.append("data_referencia = :data_referencia")
+    snapshot_conditions.append("status_leito = 'OCUPADO'")
+    snapshot_params = dict(base_params)
+    snapshot_params['data_referencia'] = selected_date
+
+    return {
+        "selected_date": selected_date,
+        "where": " AND ".join(snapshot_conditions),
+        "params": snapshot_params
+    }
+
+
+def _get_emergencia_profile_range_context(conn, args):
+    enfermaria = args.get('enfermaria')
+    periodo_inicio = args.get('periodo_inicio')
+    periodo_fim = args.get('periodo_fim')
+    mes = args.get('mes')
+
+    ward_list = "', '".join(EMERGENCY_WARDS)
+    where_conditions = ["status_leito = 'OCUPADO'"]
+    params = {}
+
+    if enfermaria and enfermaria in EMERGENCY_WARDS:
+        where_conditions.append("nome_enfermaria = :enfermaria")
+        params['enfermaria'] = enfermaria
+    else:
+        where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+
+    if periodo_inicio and periodo_fim:
+        where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+        params['periodo_inicio'] = periodo_inicio
+        params['periodo_fim'] = periodo_fim
+    elif mes:
+        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
+        if last_year is None:
+            return None
+        where_conditions.append("MONTH(data_referencia) = :mes")
+        where_conditions.append("YEAR(data_referencia) = :last_year")
+        params['mes'] = mes
+        params['last_year'] = int(last_year)
+    else:
+        base_where = " AND ".join(where_conditions) if where_conditions else "1=1"
+        sql_max = text(f"SELECT MAX(data_referencia) FROM historico_ocupacao_completo WHERE {base_where}")
+        max_date = conn.execute(sql_max, params).scalar()
+        if not max_date:
+            return None
+        where_conditions.append("data_referencia BETWEEN DATE_SUB(:max_date, INTERVAL 13 DAY) AND :max_date")
+        params['max_date'] = max_date
+
+    return {
+        "where": " AND ".join(where_conditions) if where_conditions else "1=1",
+        "params": params
+    }
+
+
+@app.route('/api/emergencia/perfil-resumo')
+def api_emergencia_perfil_resumo():
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            context = _get_emergencia_profile_snapshot_context(conn, request.args)
+            if not context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            params = dict(context['params'])
+            params['ref_date'] = context['selected_date']
+            sql = text(_patient_profile_query(context['where']))
+            rows = conn.execute(sql, params).mappings().all()
+
+            total = len(rows)
+            if total == 0:
+                return jsonify({
+                    "data_referencia": str(context['selected_date']),
+                    "total_pacientes": 0,
+                    "sexo_m_pct": 0,
+                    "sexo_f_pct": 0,
+                    "idade_media": 0,
+                    "idade_mediana": 0,
+                    "tempo_medio": 0,
+                    "tempo_mediano": 0,
+                    "longa_permanencia_pct": 0
+                })
+
+            idades = [int(r['idade']) for r in rows if r['idade'] is not None]
+            tempos = [int(r['dias']) if r['dias'] is not None else 0 for r in rows]
+
+            sex_norm = []
+            for r in rows:
+                sexo_raw = (r['sexo'] or '').strip().upper()
+                if sexo_raw in ('M', 'MASCULINO'):
+                    sex_norm.append('M')
+                elif sexo_raw in ('F', 'FEMININO'):
+                    sex_norm.append('F')
+                else:
+                    sex_norm.append('NI')
+
+            def median(values):
+                if not values:
+                    return 0
+                ordered = sorted(values)
+                n = len(ordered)
+                m = n // 2
+                if n % 2 == 0:
+                    return round((ordered[m - 1] + ordered[m]) / 2, 1)
+                return ordered[m]
+
+            male_count = sum(1 for s in sex_norm if s == 'M')
+            female_count = sum(1 for s in sex_norm if s == 'F')
+            longa_count = sum(1 for d in tempos if d > 30)
+
+            return jsonify({
+                "data_referencia": str(context['selected_date']),
+                "total_pacientes": total,
+                "sexo_m_pct": round((male_count / total) * 100, 1),
+                "sexo_f_pct": round((female_count / total) * 100, 1),
+                "idade_media": round(sum(idades) / len(idades), 1) if idades else 0,
+                "idade_mediana": median(idades),
+                "tempo_medio": round(sum(tempos) / len(tempos), 1) if tempos else 0,
+                "tempo_mediano": median(tempos),
+                "longa_permanencia_pct": round((longa_count / total) * 100, 1)
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+@app.route('/api/emergencia/perfil-graficos')
+def api_emergencia_perfil_graficos():
+    if not db_status:
+        return {"error": "Banco não conectado"}, 500
+
+    try:
+        with engine.connect() as conn:
+            snapshot_context = _get_emergencia_profile_snapshot_context(conn, request.args)
+            if not snapshot_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            snapshot_params = dict(snapshot_context['params'])
+            snapshot_params['ref_date'] = snapshot_context['selected_date']
+            sql_profile = text(_patient_profile_query(snapshot_context['where']))
+            rows = conn.execute(sql_profile, snapshot_params).mappings().all()
+
+            range_context = _get_emergencia_profile_range_context(conn, request.args)
+            if not range_context:
+                return {"error": "Sem dados disponíveis"}, 404
+
+            sql_series = text(f"""
+                SELECT
+                    DATE_FORMAT(data_referencia, '%d/%m') as dia,
+                    COUNT(DISTINCT COALESCE(
+                        NULLIF(TRIM(cns_paciente), ''),
+                        NULLIF(TRIM(prontuario), ''),
+                        NULLIF(TRIM(aih_paciente), ''),
+                        NULLIF(TRIM(nome_paciente), ''),
+                        CONCAT('LEITO-', num_enf, '-', leito)
+                    )) as pacientes_ativos
+                FROM historico_ocupacao_completo
+                WHERE {range_context['where']}
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            series_rows = conn.execute(sql_series, range_context['params']).mappings().all()
+
+            sexo_counts = {'Masculino': 0, 'Feminino': 0, 'Não informado': 0}
+            faixa_counts = {'0-17': 0, '18-39': 0, '40-59': 0, '60-79': 0, '80+': 0}
+            hist_counts = {'0-7': 0, '8-14': 0, '15-30': 0, '31-60': 0, '61-90': 0, '>90': 0}
+            enfermaria_counts = {}
+            enfermaria_los = {}
+
+            for row in rows:
+                sexo_raw = (row['sexo'] or '').strip().upper()
+                if sexo_raw in ('M', 'MASCULINO'):
+                    sexo_counts['Masculino'] += 1
+                elif sexo_raw in ('F', 'FEMININO'):
+                    sexo_counts['Feminino'] += 1
+                else:
+                    sexo_counts['Não informado'] += 1
+
+                idade = int(row['idade']) if row['idade'] is not None else None
+                if idade is not None:
+                    if idade <= 17:
+                        faixa_counts['0-17'] += 1
+                    elif idade <= 39:
+                        faixa_counts['18-39'] += 1
+                    elif idade <= 59:
+                        faixa_counts['40-59'] += 1
+                    elif idade <= 79:
+                        faixa_counts['60-79'] += 1
+                    else:
+                        faixa_counts['80+'] += 1
+
+                dias = int(row['dias']) if row['dias'] is not None else 0
+                if dias <= 7:
+                    hist_counts['0-7'] += 1
+                elif dias <= 14:
+                    hist_counts['8-14'] += 1
+                elif dias <= 30:
+                    hist_counts['15-30'] += 1
+                elif dias <= 60:
+                    hist_counts['31-60'] += 1
+                elif dias <= 90:
+                    hist_counts['61-90'] += 1
+                else:
+                    hist_counts['>90'] += 1
+
+                enfermaria = row['nome_enfermaria'] or 'Sem enfermaria'
+                enfermaria_counts[enfermaria] = enfermaria_counts.get(enfermaria, 0) + 1
+                if enfermaria not in enfermaria_los:
+                    enfermaria_los[enfermaria] = {'sum': 0, 'count': 0}
+                enfermaria_los[enfermaria]['sum'] += dias
+                enfermaria_los[enfermaria]['count'] += 1
+
+            top_enfermarias = sorted(enfermaria_counts.items(), key=lambda item: item[1], reverse=True)[:10]
+            enfermaria_avg_los = []
+            for enfermaria, stats in enfermaria_los.items():
+                avg_days = round(stats['sum'] / stats['count'], 1) if stats['count'] > 0 else 0
+                enfermaria_avg_los.append((enfermaria, avg_days))
+            top_enfermarias_los = sorted(enfermaria_avg_los, key=lambda item: item[1], reverse=True)[:10]
+
+            return jsonify({
+                "serie_pacientes": {
+                    "labels": [r['dia'] for r in series_rows],
+                    "data": [int(r['pacientes_ativos']) for r in series_rows]
+                },
+                "sexo": {
+                    "labels": list(sexo_counts.keys()),
+                    "data": list(sexo_counts.values())
+                },
+                "faixa_etaria": {
+                    "labels": list(faixa_counts.keys()),
+                    "data": list(faixa_counts.values())
+                },
+                "hist_permanencia": {
+                    "labels": list(hist_counts.keys()),
+                    "data": list(hist_counts.values())
+                },
+                "top_enfermarias": {
+                    "labels": [c[0] for c in top_enfermarias],
+                    "data": [c[1] for c in top_enfermarias]
+                },
+                "permanencia_enfermaria": {
+                    "labels": [c[0] for c in top_enfermarias_los],
+                    "data": [c[1] for c in top_enfermarias_los]
+                }
+            })
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 @app.route('/api/emergencia/kpis-complementares')
 def api_emergencia_kpis_complementares():
     """Retorna KPIs complementares do perfil da emergência"""

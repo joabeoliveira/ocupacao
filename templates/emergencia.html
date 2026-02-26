@@ -514,6 +514,9 @@
                             <button class="tab-button" onclick="switchTab('tab-avancado', event)">
                                 <i class="fas fa-flask mr-2"></i>Análises Avançadas
                             </button>
+                            <button class="tab-button" onclick="switchTab('tab-perfil', event)">
+                                <i class="fas fa-user-injured mr-2"></i>Perfil do Paciente
+                            </button>
                         </div>
 
                         <!-- Tab: Complementar -->
@@ -632,6 +635,141 @@
                                     </h3>
                                     <div style="height: 300px; position: relative;">
                                         <canvas id="chart-longa-ranking"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab: Perfil do Paciente -->
+                        <div id="tab-perfil" class="tab-content">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-blue-500 card-hover border border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-gray-400 text-xs font-bold uppercase mb-2">Pacientes Únicos</div>
+                                            <div class="text-3xl font-bold text-blue-400" id="kpi-perfil-pacientes">—</div>
+                                        </div>
+                                        <div class="text-blue-500 text-2xl"><i class="fas fa-user-injured"></i></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-green-500 card-hover border border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-gray-400 text-xs font-bold uppercase mb-2">Idade Média</div>
+                                            <div class="text-3xl font-bold text-green-400" id="kpi-perfil-idade-media">—</div>
+                                        </div>
+                                        <div class="text-green-500 text-2xl"><i class="fas fa-birthday-cake"></i></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-yellow-500 card-hover border border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-gray-400 text-xs font-bold uppercase mb-2">Idade Mediana</div>
+                                            <div class="text-3xl font-bold text-yellow-400" id="kpi-perfil-idade-mediana">—</div>
+                                        </div>
+                                        <div class="text-yellow-500 text-2xl"><i class="fas fa-chart-pie"></i></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-purple-500 card-hover border border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-gray-400 text-xs font-bold uppercase mb-2">Tempo Médio (dias)</div>
+                                            <div class="text-3xl font-bold text-purple-400" id="kpi-perfil-tempo-medio">—</div>
+                                        </div>
+                                        <div class="text-purple-500 text-2xl"><i class="fas fa-hourglass-half"></i></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-red-500 card-hover border border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-gray-400 text-xs font-bold uppercase mb-2">Tempo Mediano (dias)</div>
+                                            <div class="text-3xl font-bold text-red-400" id="kpi-perfil-tempo-mediano">—</div>
+                                        </div>
+                                        <div class="text-red-500 text-2xl"><i class="fas fa-calendar-days"></i></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-pink-500 card-hover border border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-gray-400 text-xs font-bold uppercase mb-2">% Longa Permanência</div>
+                                            <div class="text-3xl font-bold text-pink-400" id="kpi-perfil-longa">—</div>
+                                        </div>
+                                        <div class="text-pink-500 text-2xl"><i class="fas fa-exclamation-circle"></i></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-indigo-500 card-hover border border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-gray-400 text-xs font-bold uppercase mb-2">Top Enfermaria (pac.)</div>
+                                            <div class="text-3xl font-bold text-indigo-400" id="kpi-perfil-top-enfermaria">—</div>
+                                        </div>
+                                        <div class="text-indigo-500 text-2xl"><i class="fas fa-hospital"></i></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl border-l-4 border-cyan-500 card-hover border border-gray-700">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-gray-400 text-xs font-bold uppercase mb-2">M% : F%</div>
+                                            <div class="text-3xl font-bold text-cyan-400" id="kpi-perfil-sexo">—</div>
+                                        </div>
+                                        <div class="text-cyan-500 text-2xl"><i class="fas fa-venus-mars"></i></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-chart-line mr-2 text-blue-400"></i>
+                                        Pacientes Ativos por Dia
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-perfil-serie-temporal"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-venus-mars mr-2 text-pink-400"></i>
+                                        Distribuição por Sexo
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-perfil-sexo"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-chart-bar mr-2 text-green-400"></i>
+                                        Distribuição por Faixa Etária
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-perfil-faixa-etaria"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-hourglass-half mr-2 text-orange-400"></i>
+                                        Distribuição do Tempo de Permanência
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-perfil-hist-permanencia"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-hospital mr-2 text-blue-400"></i>
+                                        Top 10 Enfermarias por Pacientes
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-perfil-top-enfermarias"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-clock mr-2 text-purple-400"></i>
+                                        Tempo Médio de Permanência por Enfermaria (Top 10)
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-perfil-longa-clinicas"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -1179,11 +1317,13 @@
         // ========== TAB SYSTEM ==========
         let tabsDataLoaded = {
             'tab-complementar': false,
-            'tab-avancado': false
+            'tab-avancado': false,
+            'tab-perfil': false
         };
 
         let chartsComplementar = {};
         let chartsAvancado = {};
+        let chartsPerfil = {};
 
         function switchTab(tabId, event) {
             // Update button states
@@ -1200,6 +1340,8 @@
                     loadComplementarTab();
                 } else if (tabId === 'tab-avancado') {
                     loadAvancadoTab();
+                } else if (tabId === 'tab-perfil') {
+                    loadPerfilTab();
                 }
                 tabsDataLoaded[tabId] = true;
             }
@@ -1452,6 +1594,231 @@
             loadRotatividadeSerie();
             loadReservaSerie();
             loadLongaRanking();
+        }
+
+        // ========== PERFIL DO PACIENTE TAB ==========
+        async function loadPerfilTab() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const [graficosRes, resumoRes] = await Promise.all([
+                    fetch('/api/emergencia/perfil-graficos' + (qs ? ('?' + qs) : '')),
+                    fetch('/api/emergencia/perfil-resumo' + (qs ? ('?' + qs) : ''))
+                ]);
+
+                const graficosData = await graficosRes.json();
+                const resumoData = await resumoRes.json();
+
+                if (graficosData.error || resumoData.error) return;
+
+                populatePerfilKpis(resumoData, graficosData);
+                renderPerfilCharts(graficosData);
+            } catch (error) {
+                console.error('Erro ao carregar perfil do paciente:', error);
+            }
+        }
+
+        function populatePerfilKpis(resumo, graficos) {
+            const asNumber = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
+            const formatDecimal = (value, decimals = 1) => {
+                const numeric = asNumber(value);
+                return numeric === null ? '—' : numeric.toFixed(decimals);
+            };
+            const formatInteger = (value) => {
+                const numeric = asNumber(value);
+                return numeric === null ? '—' : numeric.toLocaleString('pt-BR');
+            };
+            const formatPercent = (value) => {
+                const numeric = asNumber(value);
+                return numeric === null ? '—' : `${numeric.toFixed(1)}%`;
+            };
+
+            const totalPacientes = resumo?.total_pacientes;
+            const longaPct = resumo?.longa_permanencia_pct;
+            const topLabels = graficos?.top_enfermarias?.labels || [];
+            const topValues = graficos?.top_enfermarias?.data || [];
+            const topEnf = topLabels.length
+                ? `${topLabels[0]} (${asNumber(topValues[0]) ?? 0})`
+                : '—';
+
+            document.getElementById('kpi-perfil-pacientes').textContent = formatInteger(totalPacientes);
+            document.getElementById('kpi-perfil-idade-media').textContent = formatDecimal(resumo?.idade_media);
+            document.getElementById('kpi-perfil-idade-mediana').textContent = formatDecimal(resumo?.idade_mediana, 0);
+            document.getElementById('kpi-perfil-tempo-medio').textContent = formatDecimal(resumo?.tempo_medio);
+            document.getElementById('kpi-perfil-tempo-mediano').textContent = formatDecimal(resumo?.tempo_mediano, 0);
+            document.getElementById('kpi-perfil-longa').textContent = formatPercent(longaPct);
+            document.getElementById('kpi-perfil-top-enfermaria').textContent = topEnf;
+            document.getElementById('kpi-perfil-sexo').textContent = `${formatPercent(resumo?.sexo_m_pct)} : ${formatPercent(resumo?.sexo_f_pct)}`;
+        }
+
+        function getPerfilChartColors() {
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            return {
+                chartBlue: 'rgba(59, 130, 246, 0.85)',
+                chartGreen: 'rgba(34, 197, 94, 0.85)',
+                chartOrange: 'rgba(249, 115, 22, 0.85)',
+                chartText: isDark ? '#E5E7EB' : '#1F2937',
+                chartGrid: isDark ? '#374151' : '#E5E7EB'
+            };
+        }
+
+        function renderPerfilCharts(data) {
+            const colors = getPerfilChartColors();
+            Object.values(chartsPerfil).forEach(chart => {
+                if (chart) chart.destroy();
+            });
+            chartsPerfil = {};
+
+            const ctx1 = document.getElementById('chart-perfil-serie-temporal').getContext('2d');
+            chartsPerfil['serie'] = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: data.serie_pacientes?.labels || [],
+                    datasets: [{
+                        label: 'Pacientes Ativos',
+                        data: data.serie_pacientes?.data || [],
+                        borderColor: colors.chartBlue,
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
+                    scales: {
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                    }
+                }
+            });
+
+            const ctx2 = document.getElementById('chart-perfil-sexo').getContext('2d');
+            chartsPerfil['sexo'] = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: data.sexo?.labels || [],
+                    datasets: [{
+                        data: data.sexo?.data || [],
+                        backgroundColor: ['#3B82F6', '#F97316', '#10B981']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    }
+                }
+            });
+
+            const ctx3 = document.getElementById('chart-perfil-faixa-etaria').getContext('2d');
+            chartsPerfil['faixa'] = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: data.faixa_etaria?.labels || [],
+                    datasets: [{
+                        label: 'Pacientes',
+                        data: data.faixa_etaria?.data || [],
+                        backgroundColor: colors.chartGreen
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
+                    scales: {
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                    }
+                }
+            });
+
+            const ctx4 = document.getElementById('chart-perfil-hist-permanencia').getContext('2d');
+            chartsPerfil['hist'] = new Chart(ctx4, {
+                type: 'bar',
+                data: {
+                    labels: data.hist_permanencia?.labels || [],
+                    datasets: [{
+                        label: 'Pacientes',
+                        data: data.hist_permanencia?.data || [],
+                        backgroundColor: colors.chartOrange
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
+                    scales: {
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                    }
+                }
+            });
+
+            const ctx5 = document.getElementById('chart-perfil-top-enfermarias').getContext('2d');
+            chartsPerfil['top'] = new Chart(ctx5, {
+                type: 'bar',
+                indexAxis: 'y',
+                data: {
+                    labels: (data.top_enfermarias?.labels || []).slice(0, 10),
+                    datasets: [{
+                        label: 'Pacientes',
+                        data: (data.top_enfermarias?.data || []).slice(0, 10),
+                        backgroundColor: colors.chartBlue
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
+                    scales: {
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                    }
+                }
+            });
+
+            const ctx6 = document.getElementById('chart-perfil-longa-clinicas').getContext('2d');
+            chartsPerfil['los'] = new Chart(ctx6, {
+                type: 'bar',
+                indexAxis: 'y',
+                data: {
+                    labels: (data.permanencia_enfermaria?.labels || []).slice(0, 10),
+                    datasets: [{
+                        label: 'Dias',
+                        data: (data.permanencia_enfermaria?.data || []).slice(0, 10),
+                        backgroundColor: colors.chartOrange
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { labels: { color: colors.chartText } },
+                        datalabels: { enabled: true }
+                    },
+                    scales: {
+                        x: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } },
+                        y: { ticks: { color: colors.chartText }, grid: { color: colors.chartGrid } }
+                    }
+                }
+            });
         }
 
         async function loadKpisAvancados() {
@@ -1712,7 +2079,8 @@
             // Reset tabs data loaded state
             tabsDataLoaded = {
                 'tab-complementar': false,
-                'tab-avancado': false
+                'tab-avancado': false,
+                'tab-perfil': false
             };
             
             // Reload current active tab if tabs section is visible
@@ -1724,6 +2092,8 @@
                         loadComplementarTab();
                     } else if (tabId === 'tab-avancado') {
                         loadAvancadoTab();
+                    } else if (tabId === 'tab-perfil') {
+                        loadPerfilTab();
                     }
                     tabsDataLoaded[tabId] = true;
                 }
