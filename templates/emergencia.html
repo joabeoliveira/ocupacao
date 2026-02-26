@@ -536,10 +536,180 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- TABS FOR COMPLEMENTARY & ADVANCED -->
+                    <div id="tabs-section" class="hidden mt-8">
+                        <h2 class="text-xl font-bold text-white mb-4">
+                            <i class="fas fa-layer-group mr-2"></i>Análises Adicionais
+                        </h2>
+                        
+                        <div class="flex gap-2 mb-4 flex-wrap">
+                            <button class="tab-button active" onclick="switchTab('tab-complementar', event)">
+                                <i class="fas fa-chart-area mr-2"></i>Análises Complementares
+                            </button>
+                            <button class="tab-button" onclick="switchTab('tab-avancado', event)">
+                                <i class="fas fa-flask mr-2"></i>Análises Avançadas
+                            </button>
+                        </div>
+
+                        <!-- Tab: Complementar -->
+                        <div id="tab-complementar" class="tab-content active">
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-red-500 card-hover border border-gray-700">
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-1">Leitos Impedidos</div>
+                                    <div class="text-2xl font-bold text-red-400" id="kpi-comp-impedidos">—</div>
+                                    <div class="text-xs text-gray-500">% no recorte</div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-indigo-500 card-hover border border-gray-700">
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-1">Top Enfermaria</div>
+                                    <div class="text-2xl font-bold text-indigo-400" id="kpi-comp-enfermaria">—</div>
+                                    <div class="text-xs text-gray-500" id="kpi-comp-enfermaria-sub">—</div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-green-500 card-hover border border-gray-700">
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-1">Pacientes Crônicos</div>
+                                    <div class="text-2xl font-bold text-green-400" id="kpi-comp-cronico">—</div>
+                                    <div class="text-xs text-gray-500">% ocupados</div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-blue-500 card-hover border border-gray-700">
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-1">Ventilação</div>
+                                    <div class="text-2xl font-bold text-blue-400" id="kpi-comp-ventilacao">—</div>
+                                    <div class="text-xs text-gray-500">% ocupados</div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-purple-500 card-hover border border-gray-700">
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-1">TRS/Diálise</div>
+                                    <div class="text-2xl font-bold text-purple-400" id="kpi-comp-trs">—</div>
+                                    <div class="text-xs text-gray-500">% ocupados</div>
+                                </div>
+                            </div>
+
+                            <!-- Complementar Charts Grid -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-ban mr-2 text-red-400"></i>
+                                        Taxa de Leitos Impedidos por Dia (%)
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-impedimentos-serie"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-layer-group mr-2 text-blue-400"></i>
+                                        Status de Leitos por Dia
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-comp-status-serie"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-exclamation-triangle mr-2 text-orange-400"></i>
+                                        Top 10 Motivos de Impedimento
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-impedimentos-top"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-th mr-2 text-blue-400"></i>
+                                        Heatmap: Ocupação por Dia da Semana × Enfermaria
+                                    </h3>
+                                    <div id="heatmap-container" class="overflow-x-auto" style="min-height: 300px;">
+                                        <p class="text-gray-400 text-center py-8">Carregando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab: Avançado -->
+                        <div id="tab-avancado" class="tab-content">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-cyan-500 card-hover border border-gray-700">
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-1">Rotatividade/Leito</div>
+                                    <div class="text-2xl font-bold text-cyan-400" id="kpi-adv-rotatividade">—</div>
+                                    <div class="text-xs text-gray-500">pacientes por leito</div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-yellow-500 card-hover border border-gray-700">
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-1">Motivo Permanência</div>
+                                    <div class="text-2xl font-bold text-yellow-400" id="kpi-adv-motivo">—</div>
+                                    <div class="text-xs text-gray-500">% informado</div>
+                                </div>
+                                <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 shadow-2xl border-l-4 border-orange-500 card-hover border border-gray-700">
+                                    <div class="text-gray-400 text-xs font-bold uppercase mb-1">Tempo Reserva</div>
+                                    <div class="text-2xl font-bold text-orange-400" id="kpi-adv-reserva">—</div>
+                                    <div class="text-xs text-gray-500">dias (média)</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-exchange-alt mr-2 text-cyan-400"></i>
+                                        Rotatividade por Dia
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-rotatividade-serie"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-hourglass mr-2 text-orange-400"></i>
+                                        Tempo Médio Reserva × Ocupação
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-reserva-serie"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg shadow-2xl card-hover animate-fade-in border border-gray-700 lg:col-span-2">
+                                    <h3 class="font-bold text-white mb-4 text-lg">
+                                        <i class="fas fa-list-ol mr-2 text-purple-400"></i>
+                                        Ranking de Longa Permanência (>30 dias)
+                                    </h3>
+                                    <div style="height: 300px; position: relative;">
+                                        <canvas id="chart-longa-ranking"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <style>
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            color: #9ca3af;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .tab-button:hover {
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+            color: #e5e7eb;
+        }
+        .tab-button.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-color: #3b82f6;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 
     <script>
         Chart.register(ChartDataLabels);
@@ -709,6 +879,13 @@
                 
                 document.getElementById('loading-skeleton').classList.add('hidden');
                 document.getElementById('stats-section').classList.remove('hidden');
+                document.getElementById('tabs-section').classList.remove('hidden');
+                
+                // Load complementar tab by default
+                if (!tabsDataLoaded['tab-complementar']) {
+                    loadComplementarTab();
+                    tabsDataLoaded['tab-complementar'] = true;
+                }
             } catch (error) {
                 console.error('Erro ao carregar estatísticas:', error);
             }
@@ -999,6 +1176,528 @@
             }
         }
 
+        // ========== TAB SYSTEM ==========
+        let tabsDataLoaded = {
+            'tab-complementar': false,
+            'tab-avancado': false
+        };
+
+        let chartsComplementar = {};
+        let chartsAvancado = {};
+
+        function switchTab(tabId, event) {
+            // Update button states
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.tab-button').classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            // Load data if not loaded yet
+            if (!tabsDataLoaded[tabId]) {
+                if (tabId === 'tab-complementar') {
+                    loadComplementarTab();
+                } else if (tabId === 'tab-avancado') {
+                    loadAvancadoTab();
+                }
+                tabsDataLoaded[tabId] = true;
+            }
+        }
+
+        // ========== COMPLEMENTAR TAB ==========
+        async function loadComplementarTab() {
+            loadKpisComplementares();
+            loadImpedimentosSerie();
+            loadCompStatusSerie();
+            loadImpedimentosTop();
+            loadOcupacaoHeatmap();
+        }
+
+        async function loadKpisComplementares() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/kpis-complementares' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                document.getElementById('kpi-comp-impedidos').textContent = data.impedidos_pct + '%';
+                
+                if (data.top_enfermarias && data.top_enfermarias.length > 0) {
+                    const top = data.top_enfermarias[0];
+                    document.getElementById('kpi-comp-enfermaria').textContent = top.label.substring(0, 20);
+                    document.getElementById('kpi-comp-enfermaria-sub').textContent = `${top.count} pacientes`;
+                } else {
+                    document.getElementById('kpi-comp-enfermaria').textContent = '—';
+                    document.getElementById('kpi-comp-enfermaria-sub').textContent = '—';
+                }
+                
+                document.getElementById('kpi-comp-cronico').textContent = data.cronicos_pct + '%';
+                document.getElementById('kpi-comp-ventilacao').textContent = data.ventilacao_pct + '%';
+                document.getElementById('kpi-comp-trs').textContent = data.trs_pct + '%';
+            } catch (error) {
+                console.error('Erro ao carregar KPIs complementares:', error);
+            }
+        }
+
+        async function loadImpedimentosSerie() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/impedimentos-serie' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('chart-impedimentos-serie').getContext('2d');
+                if (chartsComplementar['impedimentos']) chartsComplementar['impedimentos'].destroy();
+                
+                const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                const textColor = isDark ? '#E5E7EB' : '#1F2937';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                
+                chartsComplementar['impedimentos'] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Taxa Impedidos (%)',
+                            data: data.data,
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
+                            },
+                            x: {
+                                ticks: { color: textColor },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: { display: false }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar série de impedimentos:', error);
+            }
+        }
+
+        async function loadCompStatusSerie() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/status-serie' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('chart-comp-status-serie').getContext('2d');
+                if (chartsComplementar['status']) chartsComplementar['status'].destroy();
+                
+                const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                const textColor = isDark ? '#E5E7EB' : '#1F2937';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                
+                const colors = {
+                    'Livres': '#10B981',
+                    'Ocupados': '#3B82F6',
+                    'Cedido': '#F59E0B',
+                    'Impedidos': '#EF4444',
+                    'Reservados': '#8B5CF6'
+                };
+                
+                chartsComplementar['status'] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: data.datasets.map(ds => ({
+                            label: ds.label,
+                            data: ds.data,
+                            backgroundColor: colors[ds.label] || '#6B7280',
+                            borderWidth: 0
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                stacked: true,
+                                ticks: { color: textColor },
+                                grid: { display: false }
+                            },
+                            y: {
+                                stacked: true,
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { color: textColor }
+                            },
+                            datalabels: { display: false }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar status série:', error);
+            }
+        }
+
+        async function loadImpedimentosTop() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/impedimentos-top' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('chart-impedimentos-top').getContext('2d');
+                if (chartsComplementar['impTop']) chartsComplementar['impTop'].destroy();
+                
+                const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                const textColor = isDark ? '#E5E7EB' : '#1F2937';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                
+                chartsComplementar['impTop'] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Ocorrências',
+                            data: data.data,
+                            backgroundColor: '#F97316',
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                ticks: { color: textColor },
+                                grid: { display: false }
+                            },
+                            x: {
+                                beginAtZero: true,
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar top impedimentos:', error);
+            }
+        }
+
+        async function loadOcupacaoHeatmap() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/ocupacao-heatmap' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                const container = document.getElementById('heatmap-container');
+                
+                // Build simple HTML heatmap table
+                let html = '<table class="w-full text-sm" style="border-collapse: separate; border-spacing: 4px;">';
+                html += '<thead><tr><th class="p-2 text-gray-400"></th>';
+                
+                data.dias.forEach(dia => {
+                    html += `<th class="p-2 text-gray-300 text-center">${dia}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+                
+                data.data.forEach(row => {
+                    html += `<tr><td class="p-2 text-gray-300 font-semibold">${row.enfermaria}</td>`;
+                    row.valores.forEach(val => {
+                        const intensity = val / 100;
+                        const bgColor = `rgba(59, 130, 246, ${Math.max(0.1, intensity)})`;
+                        html += `<td class="p-3 text-center text-white font-bold rounded" style="background-color: ${bgColor}">${val}%</td>`;
+                    });
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Erro ao carregar heatmap:', error);
+                document.getElementById('heatmap-container').innerHTML = '<p class="text-red-400 text-center py-8">Erro ao carregar heatmap</p>';
+            }
+        }
+
+        // ========== AVANÇADO TAB ==========
+        async function loadAvancadoTab() {
+            loadKpisAvancados();
+            loadRotatividadeSerie();
+            loadReservaSerie();
+            loadLongaRanking();
+        }
+
+        async function loadKpisAvancados() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/kpis-avancados' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                document.getElementById('kpi-adv-rotatividade').textContent = data.rotatividade;
+                document.getElementById('kpi-adv-motivo').textContent = data.motivo_permanencia_pct + '%';
+                document.getElementById('kpi-adv-reserva').textContent = data.tempo_medio_reserva !== null ? data.tempo_medio_reserva : '—';
+            } catch (error) {
+                console.error('Erro ao carregar KPIs avançados:', error);
+            }
+        }
+
+        async function loadRotatividadeSerie() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/rotatividade-serie' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('chart-rotatividade-serie').getContext('2d');
+                if (chartsAvancado['rotatividade']) chartsAvancado['rotatividade'].destroy();
+                
+                const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                const textColor = isDark ? '#E5E7EB' : '#1F2937';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                
+                chartsAvancado['rotatividade'] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Rotatividade',
+                            data: data.data,
+                            borderColor: '#06B6D4',
+                            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
+                            },
+                            x: {
+                                ticks: { color: textColor },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: { display: false }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar rotatividade série:', error);
+            }
+        }
+
+        async function loadReservaSerie() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/reserva-serie' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('chart-reserva-serie').getContext('2d');
+                if (chartsAvancado['reserva']) chartsAvancado['reserva'].destroy();
+                
+                const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                const textColor = isDark ? '#E5E7EB' : '#1F2937';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                
+                chartsAvancado['reserva'] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            {
+                                label: 'Taxa Ocupação (%)',
+                                data: data.taxa_ocupacao,
+                                borderColor: '#3B82F6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                yAxisID: 'y',
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Tempo Reserva (dias)',
+                                data: data.tempo_reserva,
+                                borderColor: '#F97316',
+                                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                                yAxisID: 'y1',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                ticks: { color: textColor },
+                                grid: { color: gridColor },
+                                title: {
+                                    display: true,
+                                    text: 'Taxa Ocupação (%)',
+                                    color: textColor
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                ticks: { color: textColor },
+                                grid: { display: false },
+                                title: {
+                                    display: true,
+                                    text: 'Tempo (dias)',
+                                    color: textColor
+                                }
+                            },
+                            x: {
+                                ticks: { color: textColor },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { color: textColor }
+                            },
+                            datalabels: { display: false }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar reserva série:', error);
+            }
+        }
+
+        async function loadLongaRanking() {
+            try {
+                const qs = new URLSearchParams(currentFilters).toString();
+                const res = await fetch('/api/emergencia/longa-permanencia-ranking' + (qs ? ('?' + qs) : ''));
+                const data = await res.json();
+                
+                if (data.error) return;
+                
+                const ctx = document.getElementById('chart-longa-ranking').getContext('2d');
+                if (chartsAvancado['longa']) chartsAvancado['longa'].destroy();
+                
+                const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                const textColor = isDark ? '#E5E7EB' : '#1F2937';
+                const gridColor = isDark ? '#374151' : '#E5E7EB';
+                
+                chartsAvancado['longa'] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            {
+                                label: 'Quantidade',
+                                data: data.contagem,
+                                backgroundColor: '#8B5CF6',
+                                yAxisID: 'y',
+                                borderWidth: 0
+                            },
+                            {
+                                label: 'Média (dias)',
+                                data: data.media_dias,
+                                backgroundColor: '#F59E0B',
+                                yAxisID: 'y1',
+                                borderWidth: 0
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: true,
+                                ticks: { color: textColor },
+                                grid: { color: gridColor },
+                                title: {
+                                    display: true,
+                                    text: 'Quantidade',
+                                    color: textColor
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                beginAtZero: true,
+                                ticks: { color: textColor },
+                                grid: { display: false },
+                                title: {
+                                    display: true,
+                                    text: 'Média (dias)',
+                                    color: textColor
+                                }
+                            },
+                            x: {
+                                ticks: { color: textColor, maxRotation: 45, minRotation: 45 },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { color: textColor }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro ao carregar ranking longa permanência:', error);
+            }
+        }
+
         function refreshData() {
             document.getElementById('stats-section').classList.add('hidden');
             document.getElementById('loading-skeleton').classList.remove('hidden');
@@ -1009,6 +1708,26 @@
             loadStatusSerieChart();
             loadTipoDistribuicaoChart();
             loadPacientesTable(1);
+            
+            // Reset tabs data loaded state
+            tabsDataLoaded = {
+                'tab-complementar': false,
+                'tab-avancado': false
+            };
+            
+            // Reload current active tab if tabs section is visible
+            if (!document.getElementById('tabs-section').classList.contains('hidden')) {
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab) {
+                    const tabId = activeTab.id;
+                    if (tabId === 'tab-complementar') {
+                        loadComplementarTab();
+                    } else if (tabId === 'tab-avancado') {
+                        loadAvancadoTab();
+                    }
+                    tabsDataLoaded[tabId] = true;
+                }
+            }
         }
 
         async function loadVersion() {
