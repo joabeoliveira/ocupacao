@@ -1225,7 +1225,6 @@ def api_emergencia_export():
                     DATE_FORMAT(data_internacao, '%d/%m/%Y') as data_internacao,
                     TIMESTAMPDIFF(DAY, data_internacao, data_referencia) as dias_permanencia,
                     status_leito,
-                    tipo_leito,
                     DATE_FORMAT(data_referencia, '%d/%m/%Y') as data_referencia
                 FROM historico_ocupacao_completo
                 WHERE status_leito = 'OCUPADO'
@@ -1250,7 +1249,6 @@ def api_emergencia_export():
                 'Data Internação': r['data_internacao'],
                 'Dias Permanência': int(r['dias_permanencia']) if r['dias_permanencia'] is not None else 0,
                 'Status Leito': r['status_leito'],
-                'Tipo Leito': r['tipo_leito'],
                 'Data Referência': r['data_referencia']
             } for r in rows])
             
