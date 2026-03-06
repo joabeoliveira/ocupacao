@@ -482,8 +482,13 @@ def api_painel_stats():
             
             # Filtro de mês
             if mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
                 where_conditions.append("MONTH(data_referencia) = :mes")
-                params['mes'] = mes
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
             
             # Filtro de clínica
             if clinica:
@@ -548,8 +553,13 @@ def api_painel_evolucao():
                 params['periodo_fim'] = periodo_fim
             
             if mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
                 where_conditions.append("MONTH(data_referencia) = :mes")
-                params['mes'] = mes
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
             
             if clinica:
                 where_conditions.append("nome_enfermaria = :clinica")
@@ -600,17 +610,19 @@ def api_painel_clinicas():
             elif predio == '2':
                 where_conditions.append("num_enf BETWEEN 200 AND 299")
             
-            where_conditions = []
-            params = {}
-            
             if periodo_inicio and periodo_fim:
                 where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
                 params['periodo_inicio'] = periodo_inicio
                 params['periodo_fim'] = periodo_fim
             
             if mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
                 where_conditions.append("MONTH(data_referencia) = :mes")
-                params['mes'] = mes
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
             
             if clinica:
                 where_conditions.append("nome_enfermaria = :clinica")
@@ -661,18 +673,26 @@ def api_painel_impedimentos():
                 params['periodo_fim'] = periodo_fim
                 # If mes is also provided with period, add month filter too
                 if mes:
+                    year, month = _parse_mes_param(conn, mes)
+                    if year is None or month is None:
+                        return {"error": "Filtro de mes invalido"}, 400
                     where_conditions.append("MONTH(data_referencia) = :mes")
-                    params['mes'] = mes
+                    where_conditions.append("YEAR(data_referencia) = :ano")
+                    params['mes'] = month
+                    params['ano'] = year
             elif mes:
                 # Month-only filter: use same year as latest data
                 sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
                 last = conn.execute(sql_last).scalar()
                 if not last:
                     return {"error": "Sem dados disponíveis"}, 404
-                params['mes'] = mes
-                params['last_year'] = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
+                params['mes'] = month
+                params['ano'] = year
                 where_conditions.append("MONTH(data_referencia) = :mes")
-                where_conditions.append("YEAR(data_referencia) = :last_year")
+                where_conditions.append("YEAR(data_referencia) = :ano")
             else:
                 # No filters: default to last 14 days
                 sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
@@ -756,14 +776,13 @@ def api_emergencia_stats():
             
             # Filtro de mês
             if mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
                 where_conditions.append("MONTH(data_referencia) = :mes")
-                params['mes'] = mes
-                # Pega o ano da data mais recente
-                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
-                ano = conn.execute(sql_year).scalar()
-                if ano:
-                    where_conditions.append("YEAR(data_referencia) = :ano")
-                    params['ano'] = ano
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
             
             # Monta SQL com WHERE dinâmico
             where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
@@ -876,13 +895,13 @@ def api_emergencia_evolucao():
                 where_conditions.append("data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)")
             
             if mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
                 where_conditions.append("MONTH(data_referencia) = :mes")
-                params['mes'] = mes
-                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
-                ano = conn.execute(sql_year).scalar()
-                if ano:
-                    where_conditions.append("YEAR(data_referencia) = :ano")
-                    params['ano'] = ano
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
             
             where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
             
@@ -936,13 +955,13 @@ def api_emergencia_enfermarias():
                 where_conditions.append("data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)")
             
             if mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
                 where_conditions.append("MONTH(data_referencia) = :mes")
-                params['mes'] = mes
-                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
-                ano = conn.execute(sql_year).scalar()
-                if ano:
-                    where_conditions.append("YEAR(data_referencia) = :ano")
-                    params['ano'] = ano
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
             
             where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
             
@@ -1007,6 +1026,14 @@ def api_emergencia_pacientes():
                 where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
                 params['periodo_inicio'] = periodo_inicio
                 params['periodo_fim'] = periodo_fim
+            elif mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
             else:
                 # Padrão: última data disponível
                 sql_last_date = text("SELECT MAX(data_referencia) as ultima_data FROM historico_ocupacao_completo")
@@ -1014,10 +1041,6 @@ def api_emergencia_pacientes():
                 if ultima_data:
                     where_conditions.append("data_referencia = :ultima_data")
                     params['ultima_data'] = ultima_data
-            
-            if mes:
-                where_conditions.append("MONTH(data_referencia) = :mes")
-                params['mes'] = mes
             
             where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
             
@@ -1113,13 +1136,13 @@ def api_emergencia_export():
             
             # Filtro de mês
             if mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
                 where_conditions.append("MONTH(data_referencia) = :mes")
-                params['mes'] = mes
-                sql_year = text("SELECT YEAR(MAX(data_referencia)) as ano FROM historico_ocupacao_completo")
-                ano = conn.execute(sql_year).scalar()
-                if ano:
-                    where_conditions.append("YEAR(data_referencia) = :ano")
-                    params['ano'] = ano
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
             
             where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
             
@@ -1206,13 +1229,13 @@ def _get_emergencia_range_context(conn, args):
         params['periodo_inicio'] = periodo_inicio
         params['periodo_fim'] = periodo_fim
     elif mes:
-        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
-        if last_year is None:
+        year, month = _parse_mes_param(conn, mes)
+        if year is None or month is None:
             return None
         where_conditions.append("MONTH(data_referencia) = :mes")
-        where_conditions.append("YEAR(data_referencia) = :last_year")
-        params['mes'] = mes
-        params['last_year'] = int(last_year)
+        where_conditions.append("YEAR(data_referencia) = :ano")
+        params['mes'] = month
+        params['ano'] = year
     else:
         # Padrão: últimos 14 dias
         max_date = conn.execute(text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")).scalar()
@@ -1248,14 +1271,14 @@ def _get_emergencia_profile_snapshot_context(conn, args):
     elif periodo_inicio:
         selected_date = periodo_inicio
     elif mes:
-        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
-        if last_year is not None:
+        year, month = _parse_mes_param(conn, mes)
+        if year is not None and month is not None:
             month_conditions = list(base_conditions)
             month_conditions.append("MONTH(data_referencia) = :mes")
-            month_conditions.append("YEAR(data_referencia) = :last_year")
+            month_conditions.append("YEAR(data_referencia) = :ano")
             month_params = dict(base_params)
-            month_params['mes'] = mes
-            month_params['last_year'] = int(last_year)
+            month_params['mes'] = month
+            month_params['ano'] = year
             month_where = " AND ".join(month_conditions) if month_conditions else "1=1"
             sql_month_last = text(f"SELECT MAX(data_referencia) FROM historico_ocupacao_completo WHERE {month_where}")
             selected_date = conn.execute(sql_month_last, month_params).scalar()
@@ -1302,13 +1325,13 @@ def _get_emergencia_profile_range_context(conn, args):
         params['periodo_inicio'] = periodo_inicio
         params['periodo_fim'] = periodo_fim
     elif mes:
-        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
-        if last_year is None:
+        year, month = _parse_mes_param(conn, mes)
+        if year is None or month is None:
             return None
         where_conditions.append("MONTH(data_referencia) = :mes")
-        where_conditions.append("YEAR(data_referencia) = :last_year")
-        params['mes'] = mes
-        params['last_year'] = int(last_year)
+        where_conditions.append("YEAR(data_referencia) = :ano")
+        params['mes'] = month
+        params['ano'] = year
     else:
         base_where = " AND ".join(where_conditions) if where_conditions else "1=1"
         sql_max = text(f"SELECT MAX(data_referencia) FROM historico_ocupacao_completo WHERE {base_where}")
@@ -2140,11 +2163,13 @@ def api_disponibilidade():
                     return {"error": "Sem dados disponíveis"}, 404
 
                 if mes:
-                    # restrict to same year as last recorded date and requested month
-                    params['mes'] = mes
-                    params['last_year'] = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
+                    year, month = _parse_mes_param(conn, mes)
+                    if year is None or month is None:
+                        return {"error": "Filtro de mes invalido"}, 400
+                    params['mes'] = month
+                    params['ano'] = year
                     where_conditions.append("MONTH(data_referencia) = :mes")
-                    where_conditions.append("YEAR(data_referencia) = :last_year")
+                    where_conditions.append("YEAR(data_referencia) = :ano")
                 else:
                     where_conditions.append("data_referencia BETWEEN DATE_SUB(:last, INTERVAL 13 DAY) AND :last")
                     params['last'] = last
@@ -2210,8 +2235,8 @@ def api_tempo_permanencia():
                 if not selected_date:
                     return {"error": "Sem dados disponíveis"}, 404
 
-            # Monta filtros WHERE para a seleção de pacientes ocupados na data
-            where_conditions = ["data_referencia = :data_referencia", "status_leito = 'OCUPADO'"]
+            # Monta filtros WHERE para a seleção de pacientes ocupados
+            where_conditions = ["status_leito = 'OCUPADO'"]
             params = {"data_referencia": selected_date}
 
             if clinica:
@@ -2225,8 +2250,11 @@ def api_tempo_permanencia():
 
             # período filtrado por data_referencia (aplica quando informado)
             if periodo_inicio and periodo_fim:
-                where_conditions = ["data_referencia BETWEEN :periodo_inicio AND :periodo_fim", "status_leito = 'OCUPADO'"]
-                params = {'periodo_inicio': periodo_inicio, 'periodo_fim': periodo_fim}
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            else:
+                where_conditions.append("data_referencia = :data_referencia")
 
             where_clause = " AND ".join(where_conditions)
 
@@ -2471,6 +2499,21 @@ def api_tempo_permanencia_export():
         return {"error": str(e)}, 500
 
 
+def _parse_mes_param(conn, mes):
+    if not mes:
+        return None, None
+    try:
+        if isinstance(mes, str) and '-' in mes:
+            parts = mes.split('-')
+            if len(parts) >= 2:
+                return int(parts[0]), int(parts[1])
+        month = int(mes)
+        year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
+        return int(year) if year else None, month
+    except Exception:
+        return None, None
+
+
 def _get_perfil_snapshot_context(conn, args):
     predio = args.get('predio')
     clinica = args.get('clinica')
@@ -2497,14 +2540,14 @@ def _get_perfil_snapshot_context(conn, args):
     elif periodo_inicio:
         selected_date = periodo_inicio
     elif mes:
-        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
-        if last_year is not None:
+        year, month = _parse_mes_param(conn, mes)
+        if year is not None and month is not None:
             month_conditions = list(base_conditions)
             month_conditions.append("MONTH(data_referencia) = :mes")
-            month_conditions.append("YEAR(data_referencia) = :last_year")
+            month_conditions.append("YEAR(data_referencia) = :ano")
             month_params = dict(base_params)
-            month_params['mes'] = mes
-            month_params['last_year'] = int(last_year)
+            month_params['mes'] = month
+            month_params['ano'] = year
             month_where = " AND ".join(month_conditions) if month_conditions else "1=1"
             sql_month_last = text(f"SELECT MAX(data_referencia) FROM historico_ocupacao_completo WHERE {month_where}")
             selected_date = conn.execute(sql_month_last, month_params).scalar()
@@ -2555,13 +2598,13 @@ def _get_perfil_range_context(conn, args):
         params['periodo_inicio'] = periodo_inicio
         params['periodo_fim'] = periodo_fim
     elif mes:
-        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
-        if last_year is None:
+        year, month = _parse_mes_param(conn, mes)
+        if year is None or month is None:
             return None
         where_conditions.append("MONTH(data_referencia) = :mes")
-        where_conditions.append("YEAR(data_referencia) = :last_year")
-        params['mes'] = mes
-        params['last_year'] = int(last_year)
+        where_conditions.append("YEAR(data_referencia) = :ano")
+        params['mes'] = month
+        params['ano'] = year
     else:
         max_date = conn.execute(text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")).scalar()
         if not max_date:
@@ -2599,13 +2642,13 @@ def _get_perfil_range_context_all(conn, args):
         params['periodo_inicio'] = periodo_inicio
         params['periodo_fim'] = periodo_fim
     elif mes:
-        last_year = conn.execute(text("SELECT YEAR(MAX(data_referencia)) FROM historico_ocupacao_completo")).scalar()
-        if last_year is None:
+        year, month = _parse_mes_param(conn, mes)
+        if year is None or month is None:
             return None
         where_conditions.append("MONTH(data_referencia) = :mes")
-        where_conditions.append("YEAR(data_referencia) = :last_year")
-        params['mes'] = mes
-        params['last_year'] = int(last_year)
+        where_conditions.append("YEAR(data_referencia) = :ano")
+        params['mes'] = month
+        params['ano'] = year
     else:
         max_date = conn.execute(text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")).scalar()
         if not max_date:
@@ -2664,9 +2707,22 @@ def api_perfil_paciente_resumo():
             if not context:
                 return {"error": "Sem dados disponíveis"}, 404
 
-            params = dict(context['params'])
-            params['ref_date'] = context['selected_date']
-            sql = text(_patient_profile_query(context['where']))
+            periodo_inicio = request.args.get('periodo_inicio')
+            periodo_fim = request.args.get('periodo_fim')
+            mes = request.args.get('mes')
+
+            if (periodo_inicio and periodo_fim) or mes:
+                range_context = _get_perfil_range_context(conn, request.args)
+                if not range_context:
+                    return {"error": "Sem dados disponíveis"}, 404
+                params = dict(range_context['params'])
+                params['ref_date'] = context['selected_date']
+                sql = text(_patient_profile_query(range_context['where']))
+            else:
+                params = dict(context['params'])
+                params['ref_date'] = context['selected_date']
+                sql = text(_patient_profile_query(context['where']))
+
             rows = conn.execute(sql, params).mappings().all()
 
             total = len(rows)
@@ -2736,10 +2792,23 @@ def api_perfil_paciente_graficos():
             if not snapshot_context:
                 return {"error": "Sem dados disponíveis"}, 404
 
-            snapshot_params = dict(snapshot_context['params'])
-            snapshot_params['ref_date'] = snapshot_context['selected_date']
-            sql_profile = text(_patient_profile_query(snapshot_context['where']))
-            rows = conn.execute(sql_profile, snapshot_params).mappings().all()
+            periodo_inicio = request.args.get('periodo_inicio')
+            periodo_fim = request.args.get('periodo_fim')
+            mes = request.args.get('mes')
+
+            if (periodo_inicio and periodo_fim) or mes:
+                range_context = _get_perfil_range_context(conn, request.args)
+                if not range_context:
+                    return {"error": "Sem dados disponíveis"}, 404
+                profile_params = dict(range_context['params'])
+                profile_params['ref_date'] = snapshot_context['selected_date']
+                sql_profile = text(_patient_profile_query(range_context['where']))
+            else:
+                profile_params = dict(snapshot_context['params'])
+                profile_params['ref_date'] = snapshot_context['selected_date']
+                sql_profile = text(_patient_profile_query(snapshot_context['where']))
+
+            rows = conn.execute(sql_profile, profile_params).mappings().all()
 
             range_context = _get_perfil_range_context(conn, request.args)
             if not range_context:
@@ -2868,10 +2937,21 @@ def api_perfil_paciente_tabela():
             if not context:
                 return {"error": "Sem dados disponíveis"}, 404
 
-            params = dict(context['params'])
-            params['ref_date'] = context['selected_date']
+            periodo_inicio = request.args.get('periodo_inicio')
+            periodo_fim = request.args.get('periodo_fim')
+            mes = request.args.get('mes')
 
-            base_sql = _patient_profile_query(context['where'])
+            if (periodo_inicio and periodo_fim) or mes:
+                range_context = _get_perfil_range_context(conn, request.args)
+                if not range_context:
+                    return {"error": "Sem dados disponíveis"}, 404
+                params = dict(range_context['params'])
+                params['ref_date'] = context['selected_date']
+                base_sql = _patient_profile_query(range_context['where'])
+            else:
+                params = dict(context['params'])
+                params['ref_date'] = context['selected_date']
+                base_sql = _patient_profile_query(context['where'])
             sql_count = text(f"SELECT COUNT(*) as total FROM ({base_sql}) x")
             total = int(conn.execute(sql_count, params).scalar() or 0)
 
