@@ -2222,22 +2222,44 @@ def api_tempo_permanencia():
         selected_date = request.args.get('data_referencia')
         periodo_inicio = request.args.get('periodo_inicio')
         periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
         clinica = request.args.get('clinica')
         predio = request.args.get('predio')
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 50))
 
         with engine.connect() as conn:
-            # escolhe data se não informada
-            if not selected_date:
+            # Determina data de referência baseado nos filtros (prioridade: mes > periodo > data única)
+            reference_date = None
+            
+            if mes:
+                # Filtro por mês: pega última data do mês
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
+                sql_month_last = text("""
+                    SELECT MAX(data_referencia) 
+                    FROM historico_ocupacao_completo 
+                    WHERE MONTH(data_referencia) = :mes AND YEAR(data_referencia) = :ano
+                """)
+                reference_date = conn.execute(sql_month_last, {"mes": month, "ano": year}).scalar()
+            elif periodo_inicio and periodo_fim:
+                # Filtro por período: usa data_fim como referência
+                reference_date = periodo_fim
+            elif selected_date:
+                # Data única informada
+                reference_date = selected_date
+            else:
+                # Padrão: última data disponível
                 sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
-                selected_date = conn.execute(sql_last).scalar()
-                if not selected_date:
-                    return {"error": "Sem dados disponíveis"}, 404
+                reference_date = conn.execute(sql_last).scalar()
+            
+            if not reference_date:
+                return {"error": "Sem dados disponíveis"}, 404
 
             # Monta filtros WHERE para a seleção de pacientes ocupados
             where_conditions = ["status_leito = 'OCUPADO'"]
-            params = {"data_referencia": selected_date}
+            params = {"data_referencia": reference_date}
 
             if clinica:
                 where_conditions.append("nome_enfermaria = :clinica")
@@ -2249,7 +2271,13 @@ def api_tempo_permanencia():
                 where_conditions.append("num_enf BETWEEN 200 AND 299")
 
             # período filtrado por data_referencia (aplica quando informado)
-            if periodo_inicio and periodo_fim:
+            if mes:
+                year, month = _parse_mes_param(conn, mes)
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
+            elif periodo_inicio and periodo_fim:
                 where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
                 params['periodo_inicio'] = periodo_inicio
                 params['periodo_fim'] = periodo_fim
@@ -2408,8 +2436,8 @@ def api_tempo_permanencia():
             for it in page_items:
                 it['nome_masked'] = mask_name(it['nome'])
 
-            return jsonify({
-                'data_referencia': str(selected_date),
+            response_data = {
+                'data_referencia': str(reference_date),
                 'total_patients': total,
                 'avg_los': avg_los,
                 'median_los': median_los,
@@ -2421,7 +2449,20 @@ def api_tempo_permanencia():
                 'per_page': per_page,
                 'patients': page_items,
                 'patients_table_total': patients_table_total
-            })
+            }
+            
+            # Adiciona informações sobre filtros aplicados
+            if mes:
+                response_data['filtro_aplicado'] = 'mes'
+                response_data['mes'] = mes
+            elif periodo_inicio and periodo_fim:
+                response_data['filtro_aplicado'] = 'periodo'
+                response_data['periodo_inicio'] = periodo_inicio
+                response_data['periodo_fim'] = periodo_fim
+            else:
+                response_data['filtro_aplicado'] = 'data_unica'
+            
+            return jsonify(response_data)
 
     except Exception as e:
         return {"error": str(e)}, 500
@@ -2435,18 +2476,40 @@ def api_tempo_permanencia_export():
 
     try:
         selected_date = request.args.get('data_referencia')
+        periodo_inicio = request.args.get('periodo_inicio')
+        periodo_fim = request.args.get('periodo_fim')
+        mes = request.args.get('mes')
         clinica = request.args.get('clinica')
         predio = request.args.get('predio')
 
         with engine.connect() as conn:
-            if not selected_date:
+            # Determina data de referência (mesma lógica que api_tempo_permanencia)
+            reference_date = None
+            
+            if mes:
+                year, month = _parse_mes_param(conn, mes)
+                if year is None or month is None:
+                    return {"error": "Filtro de mes invalido"}, 400
+                sql_month_last = text("""
+                    SELECT MAX(data_referencia) 
+                    FROM historico_ocupacao_completo 
+                    WHERE MONTH(data_referencia) = :mes AND YEAR(data_referencia) = :ano
+                """)
+                reference_date = conn.execute(sql_month_last, {"mes": month, "ano": year}).scalar()
+            elif periodo_inicio and periodo_fim:
+                reference_date = periodo_fim
+            elif selected_date:
+                reference_date = selected_date
+            else:
                 sql_last = text("SELECT MAX(data_referencia) FROM historico_ocupacao_completo")
-                selected_date = conn.execute(sql_last).scalar()
-                if not selected_date:
-                    return {"error": "Sem dados disponíveis"}, 404
+                reference_date = conn.execute(sql_last).scalar()
+            
+            if not reference_date:
+                return {"error": "Sem dados disponíveis"}, 404
 
-            where_conditions = ["data_referencia = :data_referencia", "status_leito = 'OCUPADO'"]
-            params = {"data_referencia": selected_date}
+            where_conditions = ["status_leito = 'OCUPADO'"]
+            params = {"data_referencia": reference_date}
+            
             if clinica:
                 where_conditions.append("nome_enfermaria = :clinica")
                 params['clinica'] = clinica
@@ -2454,6 +2517,20 @@ def api_tempo_permanencia_export():
                 where_conditions.append("num_enf BETWEEN 111 AND 199")
             elif predio == '2':
                 where_conditions.append("num_enf BETWEEN 200 AND 299")
+            
+            # Aplica filtro de período
+            if mes:
+                year, month = _parse_mes_param(conn, mes)
+                where_conditions.append("MONTH(data_referencia) = :mes")
+                where_conditions.append("YEAR(data_referencia) = :ano")
+                params['mes'] = month
+                params['ano'] = year
+            elif periodo_inicio and periodo_fim:
+                where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+                params['periodo_inicio'] = periodo_inicio
+                params['periodo_fim'] = periodo_fim
+            else:
+                where_conditions.append("data_referencia = :data_referencia")
 
             where_clause = " AND ".join(where_conditions)
 

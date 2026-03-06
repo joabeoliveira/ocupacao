@@ -275,7 +275,7 @@
                     <i class="fas fa-hospital-alt fa-2x mr-2"></i>
                     <span class="font-semibold text-xl tracking-tight">NIR Dashboard</span>
                 </div>
-                <span class="text-xs text-gray-400 mt-1" id="app-version">v3.3.0</span>
+                <span class="text-xs text-gray-400 mt-1" id="app-version">v3.3.9</span>
             </div>
             <nav class="flex-1 py-6">
                 <ul class="space-y-2">
@@ -309,31 +309,44 @@
                 <!-- FILTERS PANEL -->
                 <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 border border-gray-700 hidden animate-fade-in">
                     <h3 class="text-lg font-bold text-white mb-4"><i class="fas fa-filter mr-2 text-blue-400"></i>Filtros</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Prédio</label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-calendar-alt mr-1"></i>Data de Referência</label>
+                            <input type="date" id="filter-data-referencia" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <small class="text-gray-400 text-xs">Para snapshot único</small>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-calendar mr-1"></i>Período Início</label>
+                            <input type="date" id="filter-periodo-inicio" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-calendar mr-1"></i>Período Fim</label>
+                            <input type="date" id="filter-periodo-fim" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-calendar-month mr-1"></i>Mês (YYYY-MM)</label>
+                            <input type="month" id="filter-mes" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <small class="text-gray-400 text-xs">Ou selecione um mês</small>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-hospital-user mr-1"></i>Clínica</label>
+                            <select id="filter-clinica" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2"><i class="fas fa-building mr-1"></i>Prédio</label>
                             <select id="filter-predio" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
                                 <option value="">Todos</option>
                                 <option value="1">Prédio 1</option>
                                 <option value="2">Prédio 2</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Clínica</label>
-                            <select id="filter-clinica" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <option value="">Todas</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Data Referência</label>
-                            <input type="date" id="filter-periodo-fim" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Mês (YYYY-MM)</label>
-                            <input type="month" id="filter-mes" class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
                         <div class="flex items-end">
-                            <button onclick="applyFilters()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition font-semibold"><i class="fas fa-check mr-2"></i>Aplicar</button>
+                            <button onclick="applyFilters()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition font-semibold"><i class="fas fa-check mr-2"></i>Aplicar</button>
+                            <button onclick="clearFilters()" class="ml-2 bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition"><i class="fas fa-times mr-2"></i>Limpar</button>
                         </div>
                     </div>
                 </div>
@@ -736,18 +749,44 @@
         }
 
         function applyFilters() {
-            const filters = {
-                predio: document.getElementById('filter-predio').value || '',
-                clinica: document.getElementById('filter-clinica').value || '',
-                periodo_fim: document.getElementById('filter-periodo-fim').value || '',
-                mes: document.getElementById('filter-mes').value || ''
-            };
-            // Remove empty values
-            Object.keys(filters).forEach(k => !filters[k] && delete filters[k]);
+            const dataReferencia = document.getElementById('filter-data-referencia').value;
+            const periodoInicio = document.getElementById('filter-periodo-inicio').value;
+            const periodoFim = document.getElementById('filter-periodo-fim').value;
+            const mes = document.getElementById('filter-mes').value;
+            const clinica = document.getElementById('filter-clinica').value;
+            const predio = document.getElementById('filter-predio').value;
+            
+            const filters = {};
+            
+            // Prioridade: mes > periodo > data única
+            if (mes) {
+                filters.mes = mes;
+            } else if (periodoInicio && periodoFim) {
+                filters.periodo_inicio = periodoInicio;
+                filters.periodo_fim = periodoFim;
+            } else if (dataReferencia) {
+                filters.periodo_fim = dataReferencia; // Backend usa periodo_fim como data de referência
+            }
+            
+            if (clinica) filters.clinica = clinica;
+            if (predio) filters.predio = predio;
+            
             currentFilters = filters;
             currentPage = 1;
             loadData();
             toggleFilters();
+        }
+
+        function clearFilters() {
+            document.getElementById('filter-data-referencia').value = '';
+            document.getElementById('filter-periodo-inicio').value = '';
+            document.getElementById('filter-periodo-fim').value = '';
+            document.getElementById('filter-mes').value = '';
+            document.getElementById('filter-clinica').value = '';
+            document.getElementById('filter-predio').value = '';
+            currentFilters = {};
+            currentPage = 1;
+            loadData();
         }
 
         async function loadClinicasFilter() {
