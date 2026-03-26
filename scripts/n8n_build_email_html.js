@@ -133,7 +133,8 @@ function renderFilters(filters) {
   return `<ul class="filters">${items}</ul>`;
 }
 
-const input = $input.first().json || {};
+const root = $input.first().json || {};
+const input = (root.body && typeof root.body === 'object') ? root.body : root;
 const report = input.report || {};
 
 const eventName = input.event || 'nir_relatorio_manual';
