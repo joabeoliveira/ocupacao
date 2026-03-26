@@ -278,15 +278,7 @@
                 <span class="text-xs text-gray-400 mt-1" id="app-version">v3.3.9</span>
             </div>
             <nav class="flex-1 py-6">
-                <ul class="space-y-2">
-                    <li><a href="/painel" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-bed mr-3"></i>Ocupação de Leitos</a></li>
-                    <li><a href="/tempo_permanencia" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-clock mr-3"></i>Tempo de Permanência</a></li>
-                    <li><a href="/perfil_paciente" class="flex items-center px-6 py-3 bg-blue-800 rounded transition"><i class="fas fa-user-injured mr-3"></i>Perfil do Paciente</a></li>
-                    <li><a href="/disponibilidade" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-chart-area mr-3"></i>Disponibilidade</a></li>
-                    <li><a href="/emergencia" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-ambulance mr-3"></i>Emergência</a></li>
-                    <li><a href="/relatorios" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-file-export mr-3"></i>Relatórios</a></li>
-                    <li><a href="/" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-file-upload mr-3"></i>Importação e Histórico</a></li>
-                </ul>
+                {% include '_sidebar_menu.html' %}
             </nav>
         </aside>
 
