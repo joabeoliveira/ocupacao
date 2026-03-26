@@ -1,0 +1,121 @@
+{
+  "name": "NIR - Relatorio via Email HTML",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "relatorio-nir",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2d4f0f96-a74f-42e8-b2db-0f93964b8031",
+      "name": "Webhook NIR",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "nir-relatorio-email"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Entrada esperada: payload enviado por /api/relatorios/webhook-send\nfunction esc(value) {\n  return String(value ?? '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\\\"/g, '&quot;')\n    .replace(/'/g, '&#39;');\n}\n\nfunction formatBlockTitle(id) {\n  return String(id || '')\n    .replace(/_/g, ' ')\n    .replace(/\\b\\w/g, c => c.toUpperCase());\n}\n\nfunction renderKpis(kpis) {\n  if (!Array.isArray(kpis) || !kpis.length) return '';\n\n  const cards = kpis.map((kpi) => {\n    const label = esc(kpi.label || formatBlockTitle(kpi.id));\n    const value = esc(kpi.value ?? '-');\n    return `\n      <div class=\\\"kpi-card\\\">\n        <div class=\\\"kpi-label\\\">${label}</div>\n        <div class=\\\"kpi-value\\\">${value}</div>\n      </div>\n    `;\n  }).join('');\n\n  return `\n    <section class=\\\"section\\\">\n      <h2>Indicadores</h2>\n      <div class=\\\"kpi-grid\\\">${cards}</div>\n    </section>\n  `;\n}\n\nfunction renderCharts(charts) {\n  if (!Array.isArray(charts) || !charts.length) return '';\n\n  const cards = charts.map((chart) => {\n    const title = esc(chart.title || formatBlockTitle(chart.id));\n    const type = esc(chart.type || 'chart');\n    const labels = Array.isArray(chart.labels) ? chart.labels : [];\n    const data = Array.isArray(chart.data) ? chart.data : [];\n\n    const rows = labels.map((label, idx) => {\n      const value = data[idx] ?? '-';\n      return `\n        <tr>\n          <td>${esc(label)}</td>\n          <td class=\\\"num\\\">${esc(value)}</td>\n        </tr>\n      `;\n    }).join('');\n\n    return `\n      <div class=\\\"panel\\\">\n        <div class=\\\"panel-title\\\">${title}</div>\n        <div class=\\\"panel-subtitle\\\">Tipo: ${type}</div>\n        <table class=\\\"table compact\\\">\n          <thead>\n            <tr>\n              <th>Categoria</th>\n              <th class=\\\"num\\\">Valor</th>\n            </tr>\n          </thead>\n          <tbody>\n            ${rows || '<tr><td colspan=\\\"2\\\">Sem dados</td></tr>'}\n          </tbody>\n        </table>\n      </div>\n    `;\n  }).join('');\n\n  return `\n    <section class=\\\"section\\\">\n      <h2>Graficos (resumo em tabela)</h2>\n      <div class=\\\"panel-grid\\\">${cards}</div>\n    </section>\n  `;\n}\n\nfunction renderTables(tables) {\n  if (!Array.isArray(tables) || !tables.length) return '';\n\n  const blocks = tables.map((tb) => {\n    const title = esc(tb.title || formatBlockTitle(tb.id));\n    const columns = Array.isArray(tb.columns) ? tb.columns : [];\n    const rows = Array.isArray(tb.rows) ? tb.rows : [];\n\n    const thead = columns.map(c => `<th>${esc(c)}</th>`).join('');\n    const tbody = rows.map((row) => {\n      const cells = (Array.isArray(row) ? row : []).map((cell) => `<td>${esc(cell)}</td>`).join('');\n      return `<tr>${cells}</tr>`;\n    }).join('');\n\n    return `\n      <div class=\\\"table-wrap\\\">\n        <h3>${title}</h3>\n        <table class=\\\"table\\\">\n          <thead><tr>${thead}</tr></thead>\n          <tbody>${tbody || '<tr><td colspan=\\\"99\\\">Sem dados</td></tr>'}</tbody>\n        </table>\n      </div>\n    `;\n  }).join('');\n\n  return `\n    <section class=\\\"section\\\">\n      <h2>Tabelas</h2>\n      ${blocks}\n    </section>\n  `;\n}\n\nfunction renderFilters(filters) {\n  const entries = Object.entries(filters || {});\n  if (!entries.length) return '<p class=\\\"muted\\\">Sem filtros aplicados</p>';\n\n  const items = entries.map(([k, v]) => {\n    const key = esc(formatBlockTitle(k));\n    const val = esc(typeof v === 'object' ? JSON.stringify(v) : v);\n    return `<li><span>${key}:</span> ${val}</li>`;\n  }).join('');\n\n  return `<ul class=\\\"filters\\\">${items}</ul>`;\n}\n\nconst input = $input.first().json || {};\nconst report = input.report || {};\n\nconst eventName = input.event || 'nir_relatorio_manual';\nconst generatedAt = report.generated_at || input.generated_at || new Date().toISOString();\nconst customMessage = input.message || 'Relatorio gerado manualmente no dashboard NIR.';\n\nconst kpisHtml = renderKpis(report.kpis || []);\nconst chartsHtml = renderCharts(report.charts || []);\nconst tablesHtml = renderTables(report.tables || []);\nconst filtersHtml = renderFilters(report.filters || {});\n\nconst emailHtml = `\n<!doctype html>\n<html lang=\\\"pt-BR\\\">\n<head>\n  <meta charset=\\\"utf-8\\\" />\n  <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\" />\n  <title>Relatorio NIR</title>\n  <style>\n    body { margin:0; background:#eef2ff; font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; }\n    .container { max-width:980px; margin:0 auto; padding:28px 16px; }\n    .hero {\n      background: linear-gradient(130deg, #0b3a84 0%, #0f766e 100%);\n      color:#fff; border-radius:16px; padding:24px;\n      box-shadow: 0 10px 28px rgba(2, 6, 23, 0.20);\n    }\n    .hero h1 { margin:0 0 8px; font-size:24px; }\n    .hero p { margin:4px 0; opacity:0.95; }\n    .badge {\n      display:inline-block; margin-top:8px; font-size:12px; letter-spacing:0.04em;\n      text-transform:uppercase; background:rgba(255,255,255,0.18);\n      border:1px solid rgba(255,255,255,0.24); border-radius:999px; padding:6px 10px;\n    }\n    .section {\n      margin-top:18px; background:#fff; border-radius:16px; padding:18px;\n      border:1px solid #dbe5ff; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);\n    }\n    .section h2 { margin:0 0 12px; color:#1e3a8a; font-size:18px; }\n    .section h3 { margin:8px 0 10px; color:#334155; }\n    .kpi-grid {\n      display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr));\n      gap:10px;\n    }\n    .kpi-card {\n      background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);\n      border:1px solid #cbd5e1; border-radius:12px; padding:12px;\n    }\n    .kpi-label { color:#334155; font-size:12px; text-transform:uppercase; letter-spacing:0.03em; }\n    .kpi-value { color:#0f172a; font-size:24px; font-weight:700; margin-top:6px; }\n    .panel-grid {\n      display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr));\n      gap:10px;\n    }\n    .panel {\n      border:1px solid #dbe5ff; border-radius:12px; padding:12px; background:#f8fafc;\n    }\n    .panel-title { font-weight:700; color:#0f172a; }\n    .panel-subtitle { color:#64748b; font-size:12px; margin:2px 0 10px; }\n    .table-wrap { margin-top:12px; overflow-x:auto; }\n    .table { width:100%; border-collapse:collapse; min-width:420px; }\n    .table th, .table td { border-bottom:1px solid #e2e8f0; text-align:left; padding:8px; font-size:13px; }\n    .table th { background:#eff6ff; color:#1e3a8a; }\n    .table .num { text-align:right; }\n    .compact th, .compact td { padding:6px; font-size:12px; }\n    .filters { margin:0; padding-left:18px; }\n    .filters li { margin:4px 0; color:#334155; }\n    .filters span { color:#0f172a; font-weight:600; }\n    .muted { color:#64748b; }\n    .footer { margin-top:14px; font-size:12px; color:#64748b; text-align:center; }\n  </style>\n</head>\n<body>\n  <div class=\\\"container\\\">\n    <div class=\\\"hero\\\">\n      <h1>Central de Relatorios NIR</h1>\n      <p><strong>Data de geracao:</strong> ${esc(generatedAt)}</p>\n      <p><strong>Mensagem:</strong> ${esc(customMessage)}</p>\n      <span class=\\\"badge\\\">Evento: ${esc(eventName)}</span>\n    </div>\n\n    <section class=\\\"section\\\">\n      <h2>Filtros Aplicados</h2>\n      ${filtersHtml}\n    </section>\n\n    ${kpisHtml}\n    ${chartsHtml}\n    ${tablesHtml}\n\n    <div class=\\\"footer\\\">\n      Relatorio enviado automaticamente via n8n.\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nconst subject = `NIR | Relatorio ${generatedAt}`;\n\nreturn [{\n  json: {\n    subject,\n    emailHtml,\n    event: eventName,\n    generated_at: generatedAt\n  }\n}];"
+      },
+      "id": "5b8e4467-c6de-456c-af8d-7f1d1278c5d0",
+      "name": "Formatar Email HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{$env.NIR_EMAIL_TO || 'destinatario@hospital.com'}}",
+        "subject": "={{$json.subject}}",
+        "emailType": "html",
+        "message": "={{$json.emailHtml}}",
+        "options": {}
+      },
+      "id": "39bf8f43-c6b0-4f8c-b23d-a2476c9e6764",
+      "name": "Enviar Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        860,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "SEU_CREDENCIAL_GMAIL_ID",
+          "name": "SEU_CREDENCIAL_GMAIL_NOME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"ok\": true, \"message\": \"Email enviado com sucesso\", \"event\": $json.event, \"generated_at\": $json.generated_at} }}",
+        "options": {}
+      },
+      "id": "90f31dfb-8927-4f07-b0f2-82a07f9a7a53",
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1160,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook NIR": {
+      "main": [
+        [
+          {
+            "node": "Formatar Email HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Email HTML": {
+      "main": [
+        [
+          {
+            "node": "Enviar Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Gmail": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "6f9e7a41-6c62-4a88-b74a-d10e67f99599",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "tags": []
+}
