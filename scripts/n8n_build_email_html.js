@@ -17,6 +17,67 @@ function formatBlockTitle(id) {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function normalizeChartType(type) {
+  const t = String(type || '').toLowerCase();
+  if (t === 'line' || t === 'doughnut' || t === 'pie' || t === 'bar') return t;
+  return 'bar';
+}
+
+function getChartPalette(type, count) {
+  const base = ['#1d4ed8', '#0f766e', '#dc2626', '#f59e0b', '#7c3aed', '#0891b2', '#16a34a', '#db2777'];
+  const colors = Array.from({ length: Math.max(count, 1) }, (_, i) => base[i % base.length]);
+  if (type === 'line') {
+    return {
+      backgroundColor: 'rgba(29, 78, 216, 0.2)',
+      borderColor: '#1d4ed8',
+      pointBackgroundColor: '#1d4ed8'
+    };
+  }
+  return {
+    backgroundColor: colors,
+    borderColor: '#ffffff'
+  };
+}
+
+async function chartToDataUri(chart) {
+  const labels = Array.isArray(chart.labels) ? chart.labels : [];
+  const data = Array.isArray(chart.data) ? chart.data : [];
+  const type = normalizeChartType(chart.type);
+  const palette = getChartPalette(type, labels.length);
+  const title = chart.title || formatBlockTitle(chart.id);
+
+  const chartConfig = {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        label: title,
+        data,
+        ...palette,
+        borderWidth: 2,
+        fill: type === 'line'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom' },
+        title: { display: true, text: title }
+      }
+    }
+  };
+
+  const quickChartUrl = `https://quickchart.io/chart?width=900&height=420&format=png&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+  const response = await fetch(quickChartUrl);
+  if (!response.ok) {
+    throw new Error(`Falha ao gerar grafico (${response.status})`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString('base64');
+  return `data:image/png;base64,${base64}`;
+}
+
 function renderKpis(kpis) {
   if (!Array.isArray(kpis) || !kpis.length) return '';
 
@@ -39,14 +100,23 @@ function renderKpis(kpis) {
   `;
 }
 
-function renderCharts(charts) {
+async function renderCharts(charts) {
   if (!Array.isArray(charts) || !charts.length) return '';
 
-  const cards = charts.map((chart) => {
+  const cards = [];
+  for (const chart of charts) {
     const title = esc(chart.title || formatBlockTitle(chart.id));
-    const type = esc(chart.type || 'chart');
+    const type = esc(normalizeChartType(chart.type));
     const labels = Array.isArray(chart.labels) ? chart.labels : [];
     const data = Array.isArray(chart.data) ? chart.data : [];
+
+    let imageHtml = '<p class="muted">Nao foi possivel gerar imagem do grafico.</p>';
+    try {
+      const dataUri = await chartToDataUri(chart);
+      imageHtml = `<img class="chart-img" src="${dataUri}" alt="${title}" />`;
+    } catch (_) {
+      // Fallback silencioso para tabela quando a API de imagem falhar
+    }
 
     const rows = labels.map((label, idx) => {
       const value = data[idx] ?? '-';
@@ -58,10 +128,11 @@ function renderCharts(charts) {
       `;
     }).join('');
 
-    return `
+    const card = `
       <div class="panel">
         <div class="panel-title">${title}</div>
         <div class="panel-subtitle">Tipo: ${type}</div>
+        <div class="chart-wrap">${imageHtml}</div>
         <table class="table compact">
           <thead>
             <tr>
@@ -75,12 +146,13 @@ function renderCharts(charts) {
         </table>
       </div>
     `;
-  }).join('');
+    cards.push(card);
+  }
 
   return `
     <section class="section">
-      <h2>Graficos (resumo em tabela)</h2>
-      <div class="panel-grid">${cards}</div>
+      <h2>Graficos</h2>
+      <div class="panel-grid">${cards.join('')}</div>
     </section>
   `;
 }
@@ -133,20 +205,21 @@ function renderFilters(filters) {
   return `<ul class="filters">${items}</ul>`;
 }
 
-const root = $input.first().json || {};
-const input = (root.body && typeof root.body === 'object') ? root.body : root;
-const report = input.report || {};
+async function main() {
+  const root = $input.first().json || {};
+  const input = (root.body && typeof root.body === 'object') ? root.body : root;
+  const report = input.report || {};
 
-const eventName = input.event || 'nir_relatorio_manual';
-const generatedAt = report.generated_at || input.generated_at || new Date().toISOString();
-const customMessage = input.message || 'Relatorio gerado manualmente no dashboard NIR.';
+  const eventName = input.event || 'nir_relatorio_manual';
+  const generatedAt = report.generated_at || input.generated_at || new Date().toISOString();
+  const customMessage = input.message || 'Relatorio gerado manualmente no dashboard NIR.';
 
-const kpisHtml = renderKpis(report.kpis || []);
-const chartsHtml = renderCharts(report.charts || []);
-const tablesHtml = renderTables(report.tables || []);
-const filtersHtml = renderFilters(report.filters || {});
+  const kpisHtml = renderKpis(report.kpis || []);
+  const chartsHtml = await renderCharts(report.charts || []);
+  const tablesHtml = renderTables(report.tables || []);
+  const filtersHtml = renderFilters(report.filters || {});
 
-const emailHtml = `
+  const emailHtml = `
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -193,6 +266,8 @@ const emailHtml = `
     }
     .panel-title { font-weight:700; color:#0f172a; }
     .panel-subtitle { color:#64748b; font-size:12px; margin:2px 0 10px; }
+    .chart-wrap { margin: 0 0 10px; border:1px solid #e2e8f0; border-radius:10px; background:#ffffff; padding:8px; }
+    .chart-img { width:100%; height:auto; display:block; border-radius:6px; }
     .table-wrap { margin-top:12px; overflow-x:auto; }
     .table { width:100%; border-collapse:collapse; min-width:420px; }
     .table th, .table td { border-bottom:1px solid #e2e8f0; text-align:left; padding:8px; font-size:13px; }
@@ -232,13 +307,16 @@ const emailHtml = `
 </html>
 `;
 
-const subject = `NIR | Relatorio ${generatedAt}`;
+  const subject = `NIR | Relatorio ${generatedAt}`;
 
-return [{
-  json: {
-    subject,
-    emailHtml,
-    event: eventName,
-    generated_at: generatedAt
-  }
-}];
+  return [{
+    json: {
+      subject,
+      emailHtml,
+      event: eventName,
+      generated_at: generatedAt
+    }
+  }];
+}
+
+return await main();
