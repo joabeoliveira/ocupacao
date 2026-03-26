@@ -74,6 +74,24 @@ try:
         db_atual = conn.execute(text("SELECT DATABASE()")).scalar()
         print(f">>> CONECTADO COM SUCESSO! Banco Atual: '{db_atual}' <<<", flush=True)
         db_status = True
+        # Garante que a tabela de configurações existe
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS app_config (
+                chave VARCHAR(100) NOT NULL PRIMARY KEY,
+                valor TEXT,
+                atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """))
+        conn.commit()
+        # Carrega URL e estado do webhook salvo no banco (sobrescreve env var)
+        rows = conn.execute(text(
+            "SELECT chave, valor FROM app_config WHERE chave IN ('webhook_url', 'webhook_enabled')"
+        )).fetchall()
+        db_cfg = {r[0]: r[1] for r in rows}
+        if 'webhook_url' in db_cfg:
+            WEBHOOK_CONFIG['url'] = db_cfg.get('webhook_url') or ''
+            WEBHOOK_CONFIG['enabled'] = db_cfg.get('webhook_enabled', '0') == '1'
+            print(f">>> Webhook carregado do banco: enabled={WEBHOOK_CONFIG['enabled']} <<<", flush=True)
 except Exception as e:
     print(f">>> FALHA DE CONEXÃO: {e}", flush=True)
 
@@ -3962,6 +3980,19 @@ def relatorios_webhook_config():
 
         WEBHOOK_CONFIG['url'] = url
         WEBHOOK_CONFIG['enabled'] = enabled and bool(url)
+        # Persiste no banco para sobreviver a restarts
+        if engine:
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("""
+                        INSERT INTO app_config (chave, valor)
+                        VALUES ('webhook_url', :url), ('webhook_enabled', :enabled)
+                        ON DUPLICATE KEY UPDATE valor = VALUES(valor),
+                            atualizado_em = CURRENT_TIMESTAMP
+                    """), {"url": url, "enabled": "1" if (enabled and bool(url)) else "0"})
+                    conn.commit()
+            except Exception as db_err:
+                print(f"WARN: Falha ao persistir webhook no banco: {db_err}", flush=True)
         return jsonify({"message": "Configuração salva", "config": WEBHOOK_CONFIG})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
