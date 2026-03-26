@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatorios - NIR Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f1724;
+            --bg-secondary: #111827;
+            --bg-tertiary: #0b1a2a;
+            --text-primary: #e6eef8;
+            --text-secondary: #9fb6d8;
+            --border-color: #1f2937;
+            --sidebar-bg: #071025;
+        }
+        [data-theme="light"] {
+            --bg-primary: #f7fbff;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0b1724;
+            --text-secondary: #4b5563;
+            --border-color: #E5E7EB;
+            --sidebar-bg: #1E3A8A;
+        }
+        .sidebar { transition: transform 0.3s ease-in-out; }
+        .sidebar-hidden { transform: translateX(-100%); }
+        .menu-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9;
+        }
+        .menu-overlay.active { display: block; }
+        @media (max-width: 768px) {
+            .sidebar { z-index: 20 !important; }
+            .main-content { margin-left: 0 !important; }
+        }
+        @media (min-width: 769px) {
+            .sidebar { transform: none !important; }
+            .menu-overlay { display: none !important; }
+        }
+    </style>
+</head>
+<body class="font-sans" style="background-color: var(--bg-primary); color: var(--text-primary);">
+    <div class="menu-overlay" id="menu-overlay" onclick="toggleMobileMenu()"></div>
+    <button onclick="toggleMobileMenu()" class="fixed top-4 left-4 z-30 md:hidden bg-blue-600 text-white p-3 rounded-lg shadow-lg">
+        <i class="fas fa-bars" id="hamburger-icon"></i>
+    </button>
+
+    <div class="flex">
+        <aside class="sidebar w-64 h-screen text-white flex flex-col fixed left-0 top-0 z-10 shadow-2xl" id="sidebar" style="background-color: var(--sidebar-bg); border-right: 1px solid var(--border-color);">
+            <div class="flex flex-col items-center justify-center h-20 py-2" style="border-bottom: 1px solid #1E40AF;">
+                <div class="flex items-center">
+                    <i class="fas fa-hospital-alt fa-2x mr-2"></i>
+                    <span class="font-semibold text-xl tracking-tight">NIR Dashboard</span>
+                </div>
+                <span class="text-xs text-gray-400 mt-1" id="app-version">v3.1.0</span>
+            </div>
+            <nav class="flex-1 py-6">
+                <ul class="space-y-2">
+                    <li><a href="/painel" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-bed mr-3"></i>Ocupacao de Leitos</a></li>
+                    <li><a href="/tempo_permanencia" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-clock mr-3"></i>Tempo de Permanencia</a></li>
+                    <li><a href="/perfil_paciente" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-user-injured mr-3"></i>Perfil do Paciente</a></li>
+                    <li><a href="/disponibilidade" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-chart-area mr-3"></i>Disponibilidade</a></li>
+                    <li><a href="/emergencia" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-ambulance mr-3"></i>Emergencia</a></li>
+                    <li><a href="/relatorios" class="flex items-center px-6 py-3 bg-blue-800 rounded transition"><i class="fas fa-file-export mr-3"></i>Relatorios</a></li>
+                    <li><a href="/" class="flex items-center px-6 py-3 hover:bg-blue-800 rounded transition"><i class="fas fa-file-upload mr-3"></i>Importacao e Historico</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <div class="main-content flex-1 md:ml-64">
+            <div class="container mx-auto mt-16 md:mt-8 px-4 pb-12">
+                <div class="bg-gray-800 p-4 shadow-2xl rounded-lg mb-6 border border-gray-700">
+                    <div class="flex items-center justify-between gap-4 flex-wrap">
+                        <h1 class="text-white font-semibold text-2xl"><i class="fas fa-file-export mr-2"></i>Central de Relatorios</h1>
+                        <button onclick="toggleTheme()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition">
+                            <i class="fas fa-sun" id="theme-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+                    <h2 class="text-lg font-semibold mb-4 text-white">Filtros</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Predio</label>
+                            <select id="filter-predio" class="w-full px-3 py-2 rounded bg-white text-gray-900">
+                                <option value="">Todos</option>
+                                <option value="1">Predio 1</option>
+                                <option value="2">Predio 2</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Clinica</label>
+                            <input id="filter-clinica" class="w-full px-3 py-2 rounded bg-white text-gray-900" placeholder="Ex.: CLINICA REFERENCIADA">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Periodo Inicial</label>
+                            <input type="date" id="filter-periodo-inicio" class="w-full px-3 py-2 rounded bg-white text-gray-900">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Periodo Final</label>
+                            <input type="date" id="filter-periodo-fim" class="w-full px-3 py-2 rounded bg-white text-gray-900">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-300 mb-2">Mes (YYYY-MM)</label>
+                            <input id="filter-mes" class="w-full px-3 py-2 rounded bg-white text-gray-900" placeholder="2026-03">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+                    <h2 class="text-lg font-semibold mb-4 text-white">Blocos do Relatorio</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-gray-200">
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="kpi_ocupacao" checked> KPI Ocupacao Geral</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="chart_ocupacao_clinica" checked> Grafico Ocupacao por Clinica</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="chart_evolucao_ocupacao" checked> Grafico Evolucao da Ocupacao</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="table_longa_permanencia" checked> Tabela Longa Permanencia</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="kpi_emergencia"> KPI Emergencia</label>
+                    </div>
+                    <div class="mt-5 flex flex-wrap gap-2">
+                        <button onclick="loadPreview()" class="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded">Atualizar Preview</button>
+                        <button onclick="exportPDF()" class="bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded">Exportar PDF</button>
+                        <button onclick="exportPPTX()" class="bg-orange-700 hover:bg-orange-600 text-white px-4 py-2 rounded">Exportar PowerPoint</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+                    <h2 class="text-lg font-semibold mb-4 text-white">Webhook n8n</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <input id="webhook-url" class="w-full px-3 py-2 rounded bg-white text-gray-900 md:col-span-2" placeholder="https://seu-n8n/webhook/...">
+                        <label class="flex items-center gap-2 text-gray-200"><input id="webhook-enabled" type="checkbox"> Ativar webhook</label>
+                    </div>
+                    <div class="mt-3">
+                        <label class="block text-sm text-gray-300 mb-2">Mensagem para o gestor (opcional)</label>
+                        <input id="webhook-message" class="w-full px-3 py-2 rounded bg-white text-gray-900" maxlength="280" placeholder="Ex.: Atencao para aumento de ocupacao na emergencia">
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button onclick="saveWebhookConfig()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded">Salvar Configuracao</button>
+                        <button onclick="testWebhook()" class="bg-cyan-700 hover:bg-cyan-600 text-white px-4 py-2 rounded">Testar Conexao</button>
+                        <button onclick="sendWebhook()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-4 py-2 rounded">Enviar Dados para n8n</button>
+                    </div>
+                </div>
+
+                <div id="status" class="hidden p-3 rounded mb-4"></div>
+
+                <div id="kpi-preview" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6"></div>
+                <div id="charts-preview" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"></div>
+                <div id="tables-preview" class="space-y-6"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstances = {};
+        let currentPreview = { kpis: [], charts: [], tables: [] };
+
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.classList.remove('hidden', 'bg-red-700', 'bg-green-700', 'bg-blue-700');
+            status.classList.add(type === 'error' ? 'bg-red-700' : type === 'success' ? 'bg-green-700' : 'bg-blue-700');
+            status.classList.add('text-white');
+            status.textContent = message;
+            setTimeout(() => status.classList.add('hidden'), 3500);
+        }
+
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('menu-overlay');
+            sidebar.classList.toggle('sidebar-hidden');
+            overlay.classList.toggle('active');
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            document.getElementById('theme-icon').className = next === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+        }
+
+        function getFilters() {
+            return {
+                predio: document.getElementById('filter-predio').value,
+                clinica: document.getElementById('filter-clinica').value,
+                periodo_inicio: document.getElementById('filter-periodo-inicio').value,
+                periodo_fim: document.getElementById('filter-periodo-fim').value,
+                mes: document.getElementById('filter-mes').value
+            };
+        }
+
+        function getSelectedBlocks() {
+            return Array.from(document.querySelectorAll('.block-option:checked')).map(el => el.value);
+        }
+
+        async function loadPreview() {
+            const selected_blocks = getSelectedBlocks();
+            if (!selected_blocks.length) {
+                showStatus('Selecione ao menos um bloco para gerar o relatorio.', 'error');
+                return;
+            }
+            try {
+                const response = await fetch('/api/relatorios/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filters: getFilters(), selected_blocks })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Falha ao gerar preview');
+                }
+                currentPreview = data;
+                renderPreview(data);
+                showStatus('Preview atualizado com sucesso.', 'success');
+            } catch (error) {
+                showStatus(error.message, 'error');
+            }
+        }
+
+        function renderPreview(data) {
+            const kpiContainer = document.getElementById('kpi-preview');
+            const chartsContainer = document.getElementById('charts-preview');
+            const tablesContainer = document.getElementById('tables-preview');
+            kpiContainer.innerHTML = '';
+            chartsContainer.innerHTML = '';
+            tablesContainer.innerHTML = '';
+
+            Object.values(chartInstances).forEach(c => c.destroy());
+            chartInstances = {};
+
+            (data.kpis || []).forEach(kpi => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4';
+                card.innerHTML = `<div class="text-xs uppercase text-gray-400">${kpi.label}</div><div class="text-2xl font-bold text-white mt-2">${kpi.value}</div>`;
+                kpiContainer.appendChild(card);
+            });
+
+            (data.charts || []).forEach((chart, idx) => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4';
+                const canvasId = `preview-chart-${idx}`;
+                card.innerHTML = `<h3 class="text-white font-semibold mb-3">${chart.title}</h3><div style="height:320px"><canvas id="${canvasId}"></canvas></div>`;
+                chartsContainer.appendChild(card);
+
+                const ctx = document.getElementById(canvasId).getContext('2d');
+                chartInstances[canvasId] = new Chart(ctx, {
+                    type: chart.type || 'bar',
+                    data: {
+                        labels: chart.labels || [],
+                        datasets: [{
+                            label: chart.title,
+                            data: chart.data || [],
+                            borderColor: '#0b72d9',
+                            backgroundColor: 'rgba(11, 114, 217, 0.45)',
+                            borderWidth: 2,
+                            fill: chart.type === 'line'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            });
+
+            (data.tables || []).forEach(table => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4 overflow-x-auto';
+                const header = `<h3 class="text-white font-semibold mb-3">${table.title}</h3>`;
+                const cols = (table.columns || []).map(c => `<th class="text-left text-gray-200 border border-gray-700 p-2">${c}</th>`).join('');
+                const rows = (table.rows || []).map(row => `<tr>${row.map(cell => `<td class="text-gray-300 border border-gray-700 p-2">${cell}</td>`).join('')}</tr>`).join('');
+                wrapper.innerHTML = `${header}<table class="w-full text-sm"><thead><tr>${cols}</tr></thead><tbody>${rows}</tbody></table>`;
+                tablesContainer.appendChild(wrapper);
+            });
+        }
+
+        function getExportPayload() {
+            const chartImages = Object.entries(chartInstances).map(([id, instance]) => {
+                const chartMeta = (currentPreview.charts || []).find((_, idx) => `preview-chart-${idx}` === id);
+                return {
+                    title: (chartMeta && chartMeta.title) || 'Grafico',
+                    image: instance.toBase64Image('image/png', 1)
+                };
+            });
+
+            return {
+                page_title: 'NIR Dashboard - Relatorio Personalizado',
+                filters: getFilters(),
+                kpis: currentPreview.kpis || [],
+                charts: chartImages,
+                tables: currentPreview.tables || []
+            };
+        }
+
+        async function exportPDF() {
+            try {
+                const response = await fetch('/api/export/pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(getExportPayload())
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Falha ao exportar PDF');
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `relatorio_${Date.now()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                showStatus('PDF exportado com sucesso.', 'success');
+            } catch (error) {
+                showStatus(error.message, 'error');
+            }
+        }
+
+        async function exportPPTX() {
+            try {
+                const response = await fetch('/api/export/pptx', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(getExportPayload())
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Falha ao exportar PowerPoint');
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `relatorio_${Date.now()}.pptx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                showStatus('PowerPoint exportado com sucesso.', 'success');
+            } catch (error) {
+                showStatus(error.message, 'error');
+            }
+        }
+
+        async function loadWebhookConfig() {
+            try {
+                const response = await fetch('/api/relatorios/webhook-config');
+                const data = await response.json();
+                document.getElementById('webhook-url').value = data.url || '';
+                document.getElementById('webhook-enabled').checked = !!data.enabled;
+            } catch (_) {
+                showStatus('Nao foi possivel carregar configuracao do webhook.', 'error');
+            }
+        }
+
+        async function saveWebhookConfig() {
+            try {
+                const response = await fetch('/api/relatorios/webhook-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: document.getElementById('webhook-url').value,
+                        enabled: document.getElementById('webhook-enabled').checked
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Falha ao salvar webhook');
+                showStatus('Configuracao de webhook salva.', 'success');
+            } catch (error) {
+                showStatus(error.message, 'error');
+            }
+        }
+
+        async function testWebhook() {
+            try {
+                const response = await fetch('/api/relatorios/webhook-test', { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Teste de webhook falhou');
+                showStatus(`Teste enviado (HTTP ${data.status_code}).`, 'success');
+            } catch (error) {
+                showStatus(error.message, 'error');
+            }
+        }
+
+        async function sendWebhook() {
+            const selected_blocks = getSelectedBlocks();
+            if (!selected_blocks.length) {
+                showStatus('Selecione blocos antes de enviar ao n8n.', 'error');
+                return;
+            }
+            try {
+                const response = await fetch('/api/relatorios/webhook-send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filters: getFilters(),
+                        selected_blocks,
+                        message: document.getElementById('webhook-message').value.trim()
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Falha no envio para n8n');
+                showStatus(`Dados enviados ao n8n (HTTP ${data.status_code}).`, 'success');
+            } catch (error) {
+                showStatus(error.message, 'error');
+            }
+        }
+
+        (function init() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.getElementById('theme-icon').className = savedTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            loadWebhookConfig();
+            loadPreview();
+            fetch('/api/version').then(r => r.json()).then(v => {
+                document.getElementById('app-version').textContent = v.version || 'v3.1.0';
+            }).catch(() => {});
+        })();
+    </script>
+</body>
+</html>

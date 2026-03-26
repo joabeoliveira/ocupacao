@@ -1,6 +1,6 @@
 # Project Status — NIR Dashboard: Perfil do Paciente + Emergência
 
-Last updated: 2026-02-26
+Last updated: 2026-03-06
 
 ## Resumo Executivo
 
@@ -12,6 +12,20 @@ Last updated: 2026-02-26
 | **Deploy** | Pronto para merge |
 
 ---
+
+## Atualizações (2026-03-06)
+
+- Implementado filtro por período na página `Tempo de Permanência`:
+  - Adicionados campos `Período Início` e `Período Fim` e opção `Mês (YYYY-MM)` no frontend.
+  - Frontend (`templates/tempo_permanencia.html`) envia `periodo_inicio`, `periodo_fim` ou `mes` à API.
+  - Backend (`app.py`) atualizado para suportar filtros `mes` e `periodo_inicio/periodo_fim` em `/api/tempo_permanencia` e `/api/tempo_permanencia/export`.
+
+- Interface `Perfil do Paciente`: ajuste de painel de filtros para suportar período (campo `Período Início`/`Período Fim`) e limpeza de filtros no frontend (`templates/perfil_paciente.html`).
+
+- Bump de versão do sistema para `3.3.9` (atualizado em `VERSION.py`) e ajuste do rótulo visual em `perfil_paciente`.
+
+- Commit e push realizados na branch `feature/perfil-paciente` (hash: `cb5da98`).
+
 
 ## Sprint 1 (Core) — CONCLUÍDO ✅
 

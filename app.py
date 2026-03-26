@@ -10,6 +10,8 @@ from weasyprint import HTML
 import base64
 import json
 from datetime import datetime
+from html import escape
+import requests
 
 # Carrega .env se existir (apenas local)
 load_dotenv()
@@ -47,6 +49,13 @@ print("="*40 + "\n", flush=True)
 # Variáveis globais
 engine = None
 db_status = False
+MAX_RELATORIO_BLOCKS = int(os.getenv('MAX_RELATORIO_BLOCKS', '12'))
+MAX_TABELA_ROWS = int(os.getenv('MAX_TABELA_ROWS', '100'))
+WEBHOOK_TIMEOUT_SECONDS = int(os.getenv('WEBHOOK_TIMEOUT_SECONDS', '20'))
+WEBHOOK_CONFIG = {
+    "url": os.getenv('N8N_WEBHOOK_URL', '').strip(),
+    "enabled": bool(os.getenv('N8N_WEBHOOK_URL', '').strip())
+}
 
 try:
     engine = create_engine(db_url)
@@ -3512,6 +3521,427 @@ def tempo_permanencia():
     return render_template('tempo_permanencia.html')
 
 
+@app.route('/relatorios')
+def relatorios():
+    return render_template('relatorios.html')
+
+
+def _build_relatorios_base_filters(conn, filters):
+    predio = filters.get('predio')
+    clinica = filters.get('clinica')
+    periodo_inicio = filters.get('periodo_inicio')
+    periodo_fim = filters.get('periodo_fim')
+    mes = filters.get('mes')
+    data_referencia = filters.get('data_referencia')
+
+    base_conditions = []
+    base_params = {}
+
+    if clinica:
+        base_conditions.append("nome_enfermaria = :clinica")
+        base_params['clinica'] = clinica
+
+    if predio == '1':
+        base_conditions.append("num_enf BETWEEN 111 AND 199")
+    elif predio == '2':
+        base_conditions.append("num_enf BETWEEN 200 AND 299")
+
+    selected_date = data_referencia
+
+    if not selected_date:
+        if periodo_fim:
+            selected_date = periodo_fim
+        elif periodo_inicio:
+            selected_date = periodo_inicio
+        elif mes:
+            year, month = _parse_mes_param(conn, mes)
+            if year is not None and month is not None:
+                month_conditions = list(base_conditions)
+                month_conditions.append("MONTH(data_referencia) = :mes")
+                month_conditions.append("YEAR(data_referencia) = :ano")
+                month_params = dict(base_params)
+                month_params['mes'] = month
+                month_params['ano'] = year
+                month_where = " AND ".join(month_conditions) if month_conditions else "1=1"
+                sql_month_last = text(f"SELECT MAX(data_referencia) FROM historico_ocupacao_completo WHERE {month_where}")
+                selected_date = conn.execute(sql_month_last, month_params).scalar()
+
+    if not selected_date:
+        latest_where = " AND ".join(base_conditions) if base_conditions else "1=1"
+        sql_last = text(f"SELECT MAX(data_referencia) FROM historico_ocupacao_completo WHERE {latest_where}")
+        selected_date = conn.execute(sql_last, base_params).scalar()
+
+    snapshot_conditions = list(base_conditions)
+    snapshot_params = dict(base_params)
+    if selected_date:
+        snapshot_conditions.append("data_referencia = :data_referencia")
+        snapshot_params['data_referencia'] = selected_date
+
+    range_conditions = list(base_conditions)
+    range_params = dict(base_params)
+    if periodo_inicio and periodo_fim:
+        range_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
+        range_params['periodo_inicio'] = periodo_inicio
+        range_params['periodo_fim'] = periodo_fim
+    elif mes:
+        year, month = _parse_mes_param(conn, mes)
+        if year is not None and month is not None:
+            range_conditions.append("MONTH(data_referencia) = :mes")
+            range_conditions.append("YEAR(data_referencia) = :ano")
+            range_params['mes'] = month
+            range_params['ano'] = year
+    elif selected_date:
+        range_conditions.append("data_referencia BETWEEN DATE_SUB(:data_referencia, INTERVAL 13 DAY) AND :data_referencia")
+        range_params['data_referencia'] = selected_date
+
+    return {
+        "selected_date": selected_date,
+        "snapshot_where": " AND ".join(snapshot_conditions) if snapshot_conditions else "1=1",
+        "snapshot_params": snapshot_params,
+        "range_where": " AND ".join(range_conditions) if range_conditions else "1=1",
+        "range_params": range_params
+    }
+
+
+def _build_relatorios_payload(filters, selected_blocks):
+    payload = {
+        "generated_at": datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+        "filters": filters,
+        "kpis": [],
+        "charts": [],
+        "tables": []
+    }
+
+    allowed_blocks = {
+        "kpi_ocupacao",
+        "chart_ocupacao_clinica",
+        "chart_evolucao_ocupacao",
+        "table_longa_permanencia",
+        "kpi_emergencia"
+    }
+
+    # Remove duplicados preservando ordem e aplica lista de permitidos
+    seen = set()
+    blocks = []
+    for block in selected_blocks:
+        if block in allowed_blocks and block not in seen:
+            seen.add(block)
+            blocks.append(block)
+
+    if len(blocks) > MAX_RELATORIO_BLOCKS:
+        blocks = blocks[:MAX_RELATORIO_BLOCKS]
+
+    if not blocks:
+        return payload
+
+    with engine.connect() as conn:
+        context = _build_relatorios_base_filters(conn, filters)
+
+        if "kpi_ocupacao" in blocks:
+            sql_kpi_ocupacao = text(f"""
+                SELECT
+                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) AS ocupados,
+                    SUM(CASE WHEN status_leito = 'VAGO' THEN 1 ELSE 0 END) AS vagos,
+                    SUM(CASE WHEN status_leito = 'IMPEDIDO' THEN 1 ELSE 0 END) AS impedidos,
+                    COUNT(*) AS total
+                FROM historico_ocupacao_completo
+                WHERE {context['snapshot_where']}
+            """)
+            kpi_row = conn.execute(sql_kpi_ocupacao, context['snapshot_params']).mappings().first()
+            if kpi_row:
+                payload["kpis"].extend([
+                    {"id": "ocupados", "label": "Leitos Ocupados", "value": int(kpi_row['ocupados'] or 0)},
+                    {"id": "vagos", "label": "Leitos Vagos", "value": int(kpi_row['vagos'] or 0)},
+                    {"id": "impedidos", "label": "Leitos Impedidos", "value": int(kpi_row['impedidos'] or 0)},
+                    {"id": "total", "label": "Total de Leitos", "value": int(kpi_row['total'] or 0)}
+                ])
+
+        if "chart_ocupacao_clinica" in blocks:
+            sql_chart_clinica = text(f"""
+                SELECT nome_enfermaria AS clinica, COUNT(*) AS qtd
+                FROM historico_ocupacao_completo
+                WHERE {context['snapshot_where']} AND status_leito = 'OCUPADO'
+                GROUP BY nome_enfermaria
+                ORDER BY qtd DESC
+                LIMIT 10
+            """)
+            chart_rows = conn.execute(sql_chart_clinica, context['snapshot_params']).mappings().all()
+            payload["charts"].append({
+                "id": "chart_ocupacao_clinica",
+                "title": "Ocupação por Clínica",
+                "type": "bar",
+                "labels": [r['clinica'] for r in chart_rows],
+                "data": [int(r['qtd']) for r in chart_rows]
+            })
+
+        if "chart_evolucao_ocupacao" in blocks:
+            sql_evolucao = text(f"""
+                SELECT DATE_FORMAT(data_referencia, '%d/%m') AS dia, COUNT(*) AS qtd
+                FROM historico_ocupacao_completo
+                WHERE {context['range_where']} AND status_leito = 'OCUPADO'
+                GROUP BY data_referencia
+                ORDER BY data_referencia
+            """)
+            evo_rows = conn.execute(sql_evolucao, context['range_params']).mappings().all()
+            payload["charts"].append({
+                "id": "chart_evolucao_ocupacao",
+                "title": "Evolução da Ocupação",
+                "type": "line",
+                "labels": [r['dia'] for r in evo_rows],
+                "data": [int(r['qtd']) for r in evo_rows]
+            })
+
+        if "table_longa_permanencia" in blocks and context['selected_date']:
+            sql_longa = text(f"""
+                SELECT
+                    IFNULL(NULLIF(prontuario, ''), nome_paciente) AS patient_id,
+                    MAX(nome_paciente) AS nome,
+                    MAX(nome_enfermaria) AS clinica,
+                    MIN(data_internacao) AS data_internacao,
+                    TIMESTAMPDIFF(DAY, MIN(data_internacao), :selected_date) AS dias
+                FROM historico_ocupacao_completo
+                WHERE {context['snapshot_where']} AND status_leito = 'OCUPADO' AND data_internacao IS NOT NULL
+                GROUP BY patient_id
+                HAVING dias > 30
+                ORDER BY dias DESC
+                LIMIT 100
+            """)
+            longa_params = dict(context['snapshot_params'])
+            longa_params['selected_date'] = context['selected_date']
+            longa_rows = conn.execute(sql_longa, longa_params).mappings().all()
+            payload["tables"].append({
+                "id": "table_longa_permanencia",
+                "title": "Pacientes com Longa Permanência",
+                "columns": ["Paciente", "Clínica", "Data Internação", "Dias Internado"],
+                "rows": [[
+                    r['nome'] or '—',
+                    r['clinica'] or '—',
+                    r['data_internacao'].strftime('%d/%m/%Y') if r['data_internacao'] else '—',
+                    int(r['dias'] or 0)
+                ] for r in longa_rows[:MAX_TABELA_ROWS]]
+            })
+
+        if "kpi_emergencia" in blocks:
+            ward_list = "', '".join(EMERGENCY_WARDS)
+            sql_kpi_emergencia = text(f"""
+                SELECT
+                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) AS ocupados,
+                    COUNT(*) AS total
+                FROM historico_ocupacao_completo
+                WHERE {context['snapshot_where']} AND nome_enfermaria IN ('{ward_list}')
+            """)
+            e_row = conn.execute(sql_kpi_emergencia, context['snapshot_params']).mappings().first()
+            ocupados = int((e_row or {}).get('ocupados') or 0)
+            total = int((e_row or {}).get('total') or 0)
+            taxa = round((ocupados / total) * 100, 1) if total else 0
+            payload["kpis"].extend([
+                {"id": "emerg_ocupados", "label": "Emergência Ocupados", "value": ocupados},
+                {"id": "emerg_total", "label": "Emergência Total", "value": total},
+                {"id": "emerg_taxa", "label": "Taxa Emergência", "value": f"{taxa}%"}
+            ])
+
+    return payload
+
+
+@app.route('/api/relatorios/preview', methods=['POST'])
+def relatorios_preview():
+    try:
+        body = request.get_json() or {}
+        selected_blocks = body.get('selected_blocks', [])
+        filters = body.get('filters', {})
+
+        if not isinstance(selected_blocks, list):
+            return jsonify({"error": "selected_blocks deve ser uma lista"}), 400
+        if not isinstance(filters, dict):
+            return jsonify({"error": "filters deve ser um objeto"}), 400
+        if len(selected_blocks) > MAX_RELATORIO_BLOCKS:
+            return jsonify({"error": f"Máximo de {MAX_RELATORIO_BLOCKS} blocos por relatório"}), 400
+
+        payload = _build_relatorios_payload(filters, selected_blocks)
+        return jsonify(payload)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/relatorios/webhook-config', methods=['GET', 'POST'])
+def relatorios_webhook_config():
+    if request.method == 'GET':
+        return jsonify(WEBHOOK_CONFIG)
+
+    try:
+        data = request.get_json() or {}
+        url = (data.get('url') or '').strip()
+        enabled = bool(data.get('enabled'))
+
+        if url and not (url.startswith('http://') or url.startswith('https://')):
+            return jsonify({"error": "URL do webhook deve iniciar com http:// ou https://"}), 400
+
+        WEBHOOK_CONFIG['url'] = url
+        WEBHOOK_CONFIG['enabled'] = enabled and bool(url)
+        return jsonify({"message": "Configuração salva", "config": WEBHOOK_CONFIG})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/relatorios/webhook-test', methods=['POST'])
+def relatorios_webhook_test():
+    try:
+        url = WEBHOOK_CONFIG.get('url', '').strip()
+        if not url:
+            return jsonify({"error": "Webhook não configurado"}), 400
+
+        test_payload = {
+            "event": "nir_webhook_test",
+            "generated_at": datetime.now().isoformat(),
+            "message": "Teste de conexão do NIR Dashboard"
+        }
+        response = requests.post(url, json=test_payload, timeout=WEBHOOK_TIMEOUT_SECONDS)
+        return jsonify({
+            "message": "Teste enviado",
+            "status_code": response.status_code,
+            "ok": response.ok
+        })
+    except requests.RequestException as e:
+        return jsonify({"error": f"Falha ao conectar no webhook: {str(e)}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/relatorios/webhook-send', methods=['POST'])
+def relatorios_webhook_send():
+    try:
+        if not WEBHOOK_CONFIG.get('enabled'):
+            return jsonify({"error": "Webhook desabilitado. Ative nas configurações."}), 400
+
+        url = WEBHOOK_CONFIG.get('url', '').strip()
+        if not url:
+            return jsonify({"error": "Webhook não configurado"}), 400
+
+        body = request.get_json() or {}
+        selected_blocks = body.get('selected_blocks', [])
+        filters = body.get('filters', {})
+        custom_message = body.get('message', '')
+
+        report_payload = _build_relatorios_payload(filters, selected_blocks)
+        envelope = {
+            "event": "nir_relatorio_manual",
+            "generated_at": datetime.now().isoformat(),
+            "message": custom_message,
+            "report": report_payload
+        }
+
+        response = requests.post(url, json=envelope, timeout=WEBHOOK_TIMEOUT_SECONDS)
+        return jsonify({
+            "message": "Dados enviados ao n8n",
+            "status_code": response.status_code,
+            "ok": response.ok
+        })
+    except requests.RequestException as e:
+        return jsonify({"error": f"Falha ao enviar para webhook: {str(e)}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/pptx', methods=['POST'])
+def export_pptx():
+    try:
+        try:
+            from pptx import Presentation
+            from pptx.util import Inches, Pt
+        except Exception:
+            return jsonify({"error": "Dependência python-pptx não instalada"}), 500
+
+        data = request.get_json() or {}
+        page_title = data.get('page_title', 'NIR Dashboard - Relatório')
+        filters = data.get('filters', {})
+        kpis = data.get('kpis', [])
+        charts = data.get('charts', [])
+        tables = data.get('tables', [])
+
+        prs = Presentation()
+
+        slide_title = prs.slides.add_slide(prs.slide_layouts[0])
+        slide_title.shapes.title.text = page_title
+        slide_title.placeholders[1].text = f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+
+        slide_filters = prs.slides.add_slide(prs.slide_layouts[5])
+        slide_filters.shapes.title.text = "Filtros Aplicados"
+        tf = slide_filters.shapes.add_textbox(Inches(0.7), Inches(1.4), Inches(12), Inches(4)).text_frame
+        tf.word_wrap = True
+        if filters:
+            for key, val in filters.items():
+                p = tf.add_paragraph()
+                p.text = f"{key}: {val}"
+                p.font.size = Pt(18)
+        else:
+            tf.text = "Sem filtros aplicados"
+
+        if kpis:
+            slide_kpi = prs.slides.add_slide(prs.slide_layouts[5])
+            slide_kpi.shapes.title.text = "Indicadores"
+            y = 1.4
+            for kpi in kpis:
+                box = slide_kpi.shapes.add_textbox(Inches(0.7), Inches(y), Inches(12), Inches(0.5))
+                t = box.text_frame
+                t.text = f"{kpi.get('label', '')}: {kpi.get('value', '—')}"
+                t.paragraphs[0].font.size = Pt(20)
+                y += 0.55
+                if y > 6.8:
+                    break
+
+        for chart in charts:
+            image_data = chart.get('image', '')
+            if not image_data or ',' not in image_data:
+                continue
+            slide_chart = prs.slides.add_slide(prs.slide_layouts[5])
+            slide_chart.shapes.title.text = chart.get('title', 'Gráfico')
+            b64 = image_data.split(',', 1)[1]
+            img_bytes = BytesIO(base64.b64decode(b64))
+            slide_chart.shapes.add_picture(img_bytes, Inches(0.6), Inches(1.2), Inches(12.1), Inches(5.8))
+
+        for table in tables:
+            columns = table.get('columns', [])
+            rows = table.get('rows', [])
+            if not columns:
+                continue
+
+            slide_table = prs.slides.add_slide(prs.slide_layouts[5])
+            slide_table.shapes.title.text = table.get('title', 'Tabela')
+
+            max_rows = min(len(rows), 14)
+            table_shape = slide_table.shapes.add_table(
+                max_rows + 1,
+                len(columns),
+                Inches(0.4),
+                Inches(1.2),
+                Inches(12.5),
+                Inches(5.8)
+            )
+            ppt_table = table_shape.table
+
+            for col_idx, col_name in enumerate(columns):
+                ppt_table.cell(0, col_idx).text = str(col_name)
+
+            for row_idx, row_data in enumerate(rows[:max_rows], start=1):
+                for col_idx in range(len(columns)):
+                    value = row_data[col_idx] if col_idx < len(row_data) else ''
+                    ppt_table.cell(row_idx, col_idx).text = str(value)
+
+        output = BytesIO()
+        prs.save(output)
+        output.seek(0)
+
+        filename = f"relatorio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx"
+        return send_file(
+            output,
+            download_name=filename,
+            as_attachment=True,
+            mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/export/pdf', methods=['POST'])
 def export_pdf():
     """Generate PDF report from dashboard data (KPIs + charts as base64 images)."""
@@ -3527,7 +3957,10 @@ def export_pdf():
         filters = data.get('filters', {})
         kpis = data.get('kpis', [])
         charts = data.get('charts', [])
-        print(f"KPIs: {len(kpis)}, Gráficos: {len(charts)}", flush=True)
+        tables = data.get('tables', [])
+        print(f"KPIs: {len(kpis)}, Gráficos: {len(charts)}, Tabelas: {len(tables)}", flush=True)
+
+        page_title_safe = escape(str(page_title))
         
         # Build filter summary text
         filter_text = []
@@ -3552,7 +3985,7 @@ def export_pdf():
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{page_title}</title>
+    <title>{page_title_safe}</title>
     <style>
         @page {{
             size: A4;
@@ -3637,16 +4070,35 @@ def export_pdf():
             color: #9ca3af;
             text-align: center;
         }}
+        .table-section {{
+            margin-bottom: 2rem;
+            page-break-inside: avoid;
+        }}
+        .report-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+        }}
+        .report-table th {{
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            text-align: left;
+            padding: 8px;
+        }}
+        .report-table td {{
+            border: 1px solid #e5e7eb;
+            padding: 8px;
+        }}
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>{page_title}</h1>
+        <h1>{page_title_safe}</h1>
         <div class="subtitle">Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
     </div>
     
     <div class="filters">
-        <strong>Filtros aplicados:</strong> {filters_display}
+        <strong>Filtros aplicados:</strong> {escape(filters_display)}
     </div>
 """
 
@@ -3656,20 +4108,43 @@ def export_pdf():
             for kpi in kpis:
                 html_content += f"""
     <div class="kpi-card">
-        <div class="kpi-label">{kpi.get('label', '')}</div>
-        <div class="kpi-value">{kpi.get('value', '—')}</div>
+        <div class="kpi-label">{escape(str(kpi.get('label', '')))}</div>
+        <div class="kpi-value">{escape(str(kpi.get('value', '—')))}</div>
     </div>
 """
             html_content += '</div>'
 
         # Add charts
         for chart in charts:
+            chart_title = escape(str(chart.get('title', 'Gráfico')))
+            chart_image = str(chart.get('image', ''))
             html_content += f"""
     <div class="chart-section">
-        <div class="chart-title">{chart.get('title', 'Gráfico')}</div>
-        <img class="chart-image" src="{chart.get('image', '')}" alt="{chart.get('title', '')}">
+        <div class="chart-title">{chart_title}</div>
+        <img class="chart-image" src="{chart_image}" alt="{chart_title}">
     </div>
 """
+
+        for table in tables:
+            columns = table.get('columns', [])
+            rows = table.get('rows', [])
+            html_content += f"""
+    <div class="table-section">
+        <div class="chart-title">{escape(str(table.get('title', 'Tabela')))}</div>
+        <table class="report-table">
+            <thead><tr>
+"""
+            for col in columns:
+                html_content += f"<th>{escape(str(col))}</th>"
+            html_content += "</tr></thead><tbody>"
+
+            for row in rows[:MAX_TABELA_ROWS]:
+                html_content += "<tr>"
+                for cell in row:
+                    html_content += f"<td>{escape(str(cell))}</td>"
+                html_content += "</tr>"
+
+            html_content += "</tbody></table></div>"
 
         html_content += """
     <div class="footer">
