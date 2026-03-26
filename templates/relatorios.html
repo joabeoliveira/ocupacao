@@ -6,6 +6,7 @@
     <title>Relatorios - NIR Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -117,11 +118,18 @@
 
                 <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
                     <h2 class="text-lg font-semibold mb-4 text-white">Blocos do Relatorio</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-gray-200">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-gray-200">
                         <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="kpi_ocupacao" checked> KPI Ocupacao Geral</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="kpi_taxa_ocupacao" checked> KPI Taxa de Ocupacao</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="kpi_longa_permanencia" checked> KPI Longa Permanencia</label>
                         <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="chart_ocupacao_clinica" checked> Grafico Ocupacao por Clinica</label>
                         <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="chart_evolucao_ocupacao" checked> Grafico Evolucao da Ocupacao</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="chart_status_leitos" checked> Grafico Status dos Leitos</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="chart_perfil_assistencial"> Grafico Perfil Assistencial</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="chart_impedimentos_top"> Grafico Top Impedimentos</label>
                         <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="table_longa_permanencia" checked> Tabela Longa Permanencia</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="table_ocupacao_por_clinica" checked> Tabela Resumo por Clinica</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="table_status_resumo" checked> Tabela Resumo de Status</label>
                         <label class="flex items-center gap-2"><input type="checkbox" class="block-option" value="kpi_emergencia"> KPI Emergencia</label>
                     </div>
                     <div class="mt-5 flex flex-wrap gap-2">
@@ -160,6 +168,9 @@
     <script>
         let chartInstances = {};
         let currentPreview = { kpis: [], charts: [], tables: [] };
+        if (window.ChartDataLabels) {
+            Chart.register(window.ChartDataLabels);
+        }
 
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
@@ -265,7 +276,19 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } }
+                        plugins: {
+                            legend: { display: chart.type === 'doughnut' },
+                            datalabels: {
+                                display: true,
+                                color: '#e6eef8',
+                                anchor: chart.type === 'line' ? 'end' : 'center',
+                                align: chart.type === 'line' ? 'top' : 'center',
+                                font: { weight: 'bold', size: 11 },
+                                formatter: function(value) {
+                                    return value;
+                                }
+                            }
+                        }
                     }
                 });
             });

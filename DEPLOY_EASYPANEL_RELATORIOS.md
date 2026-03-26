@@ -8,7 +8,7 @@ Este checklist foi criado para validar a feature diretamente em producao via bra
 2. Garanta que o build instala dependencias de `requirements.txt`.
 3. Variaveis opcionais recomendadas no EasyPanel:
    - `N8N_WEBHOOK_URL` (opcional, pode configurar na tela)
-   - `MAX_RELATORIO_BLOCKS=12`
+   - `MAX_RELATORIO_BLOCKS=20`
    - `MAX_TABELA_ROWS=100`
    - `WEBHOOK_TIMEOUT_SECONDS=20`
 

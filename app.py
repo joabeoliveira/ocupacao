@@ -9,9 +9,10 @@ from VERSION import get_version
 from weasyprint import HTML
 import base64
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from html import escape
 import requests
+from zoneinfo import ZoneInfo
 
 # Carrega .env se existir (apenas local)
 load_dotenv()
@@ -49,9 +50,19 @@ print("="*40 + "\n", flush=True)
 # Variáveis globais
 engine = None
 db_status = False
-MAX_RELATORIO_BLOCKS = int(os.getenv('MAX_RELATORIO_BLOCKS', '12'))
+MAX_RELATORIO_BLOCKS = int(os.getenv('MAX_RELATORIO_BLOCKS', '20'))
 MAX_TABELA_ROWS = int(os.getenv('MAX_TABELA_ROWS', '100'))
 WEBHOOK_TIMEOUT_SECONDS = int(os.getenv('WEBHOOK_TIMEOUT_SECONDS', '20'))
+try:
+    BRAZIL_TZ = ZoneInfo('America/Sao_Paulo')
+except Exception:
+    BRAZIL_TZ = timezone(timedelta(hours=-3))
+
+
+def now_brazil():
+    return datetime.now(BRAZIL_TZ)
+
+
 WEBHOOK_CONFIG = {
     "url": os.getenv('N8N_WEBHOOK_URL', '').strip(),
     "enabled": bool(os.getenv('N8N_WEBHOOK_URL', '').strip())
@@ -3605,7 +3616,7 @@ def _build_relatorios_base_filters(conn, filters):
 
 def _build_relatorios_payload(filters, selected_blocks):
     payload = {
-        "generated_at": datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+        "generated_at": now_brazil().strftime('%d/%m/%Y %H:%M:%S'),
         "filters": filters,
         "kpis": [],
         "charts": [],
@@ -3614,9 +3625,16 @@ def _build_relatorios_payload(filters, selected_blocks):
 
     allowed_blocks = {
         "kpi_ocupacao",
+        "kpi_taxa_ocupacao",
+        "kpi_longa_permanencia",
         "chart_ocupacao_clinica",
         "chart_evolucao_ocupacao",
+        "chart_status_leitos",
+        "chart_perfil_assistencial",
+        "chart_impedimentos_top",
         "table_longa_permanencia",
+        "table_ocupacao_por_clinica",
+        "table_status_resumo",
         "kpi_emergencia"
     }
 
@@ -3636,18 +3654,25 @@ def _build_relatorios_payload(filters, selected_blocks):
 
     with engine.connect() as conn:
         context = _build_relatorios_base_filters(conn, filters)
+        status_snapshot = None
+
+        def get_status_snapshot():
+            nonlocal status_snapshot
+            if status_snapshot is None:
+                sql_status_snapshot = text(f"""
+                    SELECT
+                        SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) AS ocupados,
+                        SUM(CASE WHEN status_leito = 'VAGO' THEN 1 ELSE 0 END) AS vagos,
+                        SUM(CASE WHEN status_leito = 'IMPEDIDO' THEN 1 ELSE 0 END) AS impedidos,
+                        COUNT(*) AS total
+                    FROM historico_ocupacao_completo
+                    WHERE {context['snapshot_where']}
+                """)
+                status_snapshot = conn.execute(sql_status_snapshot, context['snapshot_params']).mappings().first() or {}
+            return status_snapshot
 
         if "kpi_ocupacao" in blocks:
-            sql_kpi_ocupacao = text(f"""
-                SELECT
-                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) AS ocupados,
-                    SUM(CASE WHEN status_leito = 'VAGO' THEN 1 ELSE 0 END) AS vagos,
-                    SUM(CASE WHEN status_leito = 'IMPEDIDO' THEN 1 ELSE 0 END) AS impedidos,
-                    COUNT(*) AS total
-                FROM historico_ocupacao_completo
-                WHERE {context['snapshot_where']}
-            """)
-            kpi_row = conn.execute(sql_kpi_ocupacao, context['snapshot_params']).mappings().first()
+            kpi_row = get_status_snapshot()
             if kpi_row:
                 payload["kpis"].extend([
                     {"id": "ocupados", "label": "Leitos Ocupados", "value": int(kpi_row['ocupados'] or 0)},
@@ -3655,6 +3680,39 @@ def _build_relatorios_payload(filters, selected_blocks):
                     {"id": "impedidos", "label": "Leitos Impedidos", "value": int(kpi_row['impedidos'] or 0)},
                     {"id": "total", "label": "Total de Leitos", "value": int(kpi_row['total'] or 0)}
                 ])
+
+        if "kpi_taxa_ocupacao" in blocks:
+            kpi_row = get_status_snapshot()
+            ocupados = int(kpi_row.get('ocupados') or 0)
+            impedidos = int(kpi_row.get('impedidos') or 0)
+            total = int(kpi_row.get('total') or 0)
+            total_ativos = max(total - impedidos, 0)
+            taxa_ocupacao = round((ocupados / total_ativos) * 100, 1) if total_ativos else 0
+            payload["kpis"].extend([
+                {"id": "taxa_ocupacao_geral", "label": "Taxa de Ocupação Geral", "value": f"{taxa_ocupacao}%"},
+                {"id": "total_ativos", "label": "Leitos Ativos", "value": total_ativos}
+            ])
+
+        if "kpi_longa_permanencia" in blocks and context['selected_date']:
+            sql_longa_kpi = text(f"""
+                SELECT COUNT(*) AS qtd
+                FROM (
+                    SELECT IFNULL(NULLIF(prontuario, ''), nome_paciente) AS patient_id,
+                           TIMESTAMPDIFF(DAY, MIN(data_internacao), :selected_date) AS dias
+                    FROM historico_ocupacao_completo
+                    WHERE {context['snapshot_where']} AND status_leito = 'OCUPADO' AND data_internacao IS NOT NULL
+                    GROUP BY patient_id
+                    HAVING dias > 30
+                ) t
+            """)
+            longa_params = dict(context['snapshot_params'])
+            longa_params['selected_date'] = context['selected_date']
+            longa_kpi = conn.execute(sql_longa_kpi, longa_params).mappings().first() or {}
+            payload["kpis"].append({
+                "id": "kpi_longa_permanencia",
+                "label": "Pacientes > 30 dias",
+                "value": int(longa_kpi.get('qtd') or 0)
+            })
 
         if "chart_ocupacao_clinica" in blocks:
             sql_chart_clinica = text(f"""
@@ -3691,6 +3749,56 @@ def _build_relatorios_payload(filters, selected_blocks):
                 "data": [int(r['qtd']) for r in evo_rows]
             })
 
+        if "chart_status_leitos" in blocks:
+            kpi_row = get_status_snapshot()
+            payload["charts"].append({
+                "id": "chart_status_leitos",
+                "title": "Distribuição por Status do Leito",
+                "type": "doughnut",
+                "labels": ["Ocupados", "Vagos", "Impedidos"],
+                "data": [
+                    int(kpi_row.get('ocupados') or 0),
+                    int(kpi_row.get('vagos') or 0),
+                    int(kpi_row.get('impedidos') or 0)
+                ]
+            })
+
+        if "chart_perfil_assistencial" in blocks:
+            sql_perfil = text(f"""
+                SELECT COALESCE(NULLIF(perfil, ''), 'Não Informado') AS perfil_nome, COUNT(*) AS qtd
+                FROM historico_ocupacao_completo
+                WHERE {context['snapshot_where']} AND status_leito = 'OCUPADO'
+                GROUP BY perfil_nome
+                ORDER BY qtd DESC
+                LIMIT 8
+            """)
+            perfil_rows = conn.execute(sql_perfil, context['snapshot_params']).mappings().all()
+            payload["charts"].append({
+                "id": "chart_perfil_assistencial",
+                "title": "Pacientes Ocupados por Perfil Assistencial",
+                "type": "bar",
+                "labels": [r['perfil_nome'] for r in perfil_rows],
+                "data": [int(r['qtd']) for r in perfil_rows]
+            })
+
+        if "chart_impedimentos_top" in blocks:
+            sql_impedimentos = text(f"""
+                SELECT COALESCE(NULLIF(motivo_impedimento, ''), 'Não Informado') AS motivo, COUNT(*) AS qtd
+                FROM historico_ocupacao_completo
+                WHERE {context['snapshot_where']} AND status_leito = 'IMPEDIDO'
+                GROUP BY motivo
+                ORDER BY qtd DESC
+                LIMIT 10
+            """)
+            imped_rows = conn.execute(sql_impedimentos, context['snapshot_params']).mappings().all()
+            payload["charts"].append({
+                "id": "chart_impedimentos_top",
+                "title": "Top Motivos de Impedimento",
+                "type": "bar",
+                "labels": [r['motivo'] for r in imped_rows],
+                "data": [int(r['qtd']) for r in imped_rows]
+            })
+
         if "table_longa_permanencia" in blocks and context['selected_date']:
             sql_longa = text(f"""
                 SELECT
@@ -3719,6 +3827,63 @@ def _build_relatorios_payload(filters, selected_blocks):
                     r['data_internacao'].strftime('%d/%m/%Y') if r['data_internacao'] else '—',
                     int(r['dias'] or 0)
                 ] for r in longa_rows[:MAX_TABELA_ROWS]]
+            })
+
+        if "table_ocupacao_por_clinica" in blocks:
+            sql_table_clinica = text(f"""
+                SELECT
+                    nome_enfermaria AS clinica,
+                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) AS ocupados,
+                    SUM(CASE WHEN status_leito = 'VAGO' THEN 1 ELSE 0 END) AS vagos,
+                    SUM(CASE WHEN status_leito = 'IMPEDIDO' THEN 1 ELSE 0 END) AS impedidos,
+                    COUNT(*) AS total
+                FROM historico_ocupacao_completo
+                WHERE {context['snapshot_where']}
+                GROUP BY nome_enfermaria
+                ORDER BY ocupados DESC, total DESC
+                LIMIT 20
+            """)
+            clinica_rows = conn.execute(sql_table_clinica, context['snapshot_params']).mappings().all()
+            clinica_table_rows = []
+            for r in clinica_rows[:MAX_TABELA_ROWS]:
+                ocupados = int(r['ocupados'] or 0)
+                vagos = int(r['vagos'] or 0)
+                impedidos = int(r['impedidos'] or 0)
+                total = int(r['total'] or 0)
+                total_ativos = max(total - impedidos, 1)
+                taxa = round((ocupados / total_ativos) * 100, 1)
+                clinica_table_rows.append([
+                    r['clinica'] or '—',
+                    ocupados,
+                    vagos,
+                    impedidos,
+                    total,
+                    f"{taxa}%"
+                ])
+
+            payload["tables"].append({
+                "id": "table_ocupacao_por_clinica",
+                "title": "Resumo por Clínica",
+                "columns": ["Clínica", "Ocupados", "Vagos", "Impedidos", "Total", "Taxa Ocupação"],
+                "rows": clinica_table_rows
+            })
+
+        if "table_status_resumo" in blocks:
+            kpi_row = get_status_snapshot()
+            ocupados = int(kpi_row.get('ocupados') or 0)
+            vagos = int(kpi_row.get('vagos') or 0)
+            impedidos = int(kpi_row.get('impedidos') or 0)
+            total = int(kpi_row.get('total') or 0)
+            payload["tables"].append({
+                "id": "table_status_resumo",
+                "title": "Resumo Geral de Status dos Leitos",
+                "columns": ["Status", "Quantidade", "Percentual"],
+                "rows": [
+                    ["Ocupado", ocupados, f"{round((ocupados / total) * 100, 1) if total else 0}%"],
+                    ["Vago", vagos, f"{round((vagos / total) * 100, 1) if total else 0}%"],
+                    ["Impedido", impedidos, f"{round((impedidos / total) * 100, 1) if total else 0}%"],
+                    ["Total", total, "100%" if total else "0%"]
+                ]
             })
 
         if "kpi_emergencia" in blocks:
@@ -3792,7 +3957,7 @@ def relatorios_webhook_test():
 
         test_payload = {
             "event": "nir_webhook_test",
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": now_brazil().isoformat(),
             "message": "Teste de conexão do NIR Dashboard"
         }
         response = requests.post(url, json=test_payload, timeout=WEBHOOK_TIMEOUT_SECONDS)
@@ -3825,7 +3990,7 @@ def relatorios_webhook_send():
         report_payload = _build_relatorios_payload(filters, selected_blocks)
         envelope = {
             "event": "nir_relatorio_manual",
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": now_brazil().isoformat(),
             "message": custom_message,
             "report": report_payload
         }
@@ -3862,7 +4027,7 @@ def export_pptx():
 
         slide_title = prs.slides.add_slide(prs.slide_layouts[0])
         slide_title.shapes.title.text = page_title
-        slide_title.placeholders[1].text = f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+        slide_title.placeholders[1].text = f"Gerado em {now_brazil().strftime('%d/%m/%Y %H:%M')}"
 
         slide_filters = prs.slides.add_slide(prs.slide_layouts[5])
         slide_filters.shapes.title.text = "Filtros Aplicados"
@@ -3931,7 +4096,7 @@ def export_pptx():
         prs.save(output)
         output.seek(0)
 
-        filename = f"relatorio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx"
+        filename = f"relatorio_{now_brazil().strftime('%Y%m%d_%H%M%S')}.pptx"
         return send_file(
             output,
             download_name=filename,
@@ -4094,7 +4259,7 @@ def export_pdf():
 <body>
     <div class="header">
         <h1>{page_title_safe}</h1>
-        <div class="subtitle">Relatório gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
+        <div class="subtitle">Relatório gerado em {now_brazil().strftime('%d/%m/%Y %H:%M')}</div>
     </div>
     
     <div class="filters">
@@ -4168,7 +4333,7 @@ def export_pdf():
         # Create response
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
-        filename = f"relatorio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filename = f"relatorio_{now_brazil().strftime('%Y%m%d_%H%M%S')}.pdf"
         response.headers['Content-Disposition'] = f'attachment; filename={filename}'
         
         print("PDF enviado com sucesso", flush=True)
