@@ -3,13 +3,56 @@ Sistema de Ocupação de Leitos - NIR Dashboard
 Controle de Versão
 """
 
-VERSION = "3.3.9"
-VERSION_NAME = "Tempo de Permanência Edition"
-RELEASE_DATE = "2026-01-08"
+VERSION = "3.4.0"
+VERSION_NAME = "Relatórios & Webhooks Edition"
+RELEASE_DATE = "2026-03-26"
 
 # Histórico de Versões
 CHANGELOG = """
 # Changelog
+
+## [3.4.0] - 2026-03-26 - Relatórios & Webhooks Edition
+### 🆕 Nova Funcionalidade
+- Dashboard "Relatórios" com seleção dinâmica de blocos de dados
+- Exportação PDF com suporte a tabelas dinâmicas e HTML escaping
+- Exportação PowerPoint (PPTX) com slides: título, filtros, KPIs, gráficos e tabelas
+- Integração webhook n8n com endpoints de configuração, teste e envio
+- Endpoints: POST /api/relatorios/preview, /api/relatorios/webhook-config, /api/relatorios/webhook-test, /api/relatorios/webhook-send
+- Endpoint novo: POST /api/export/pptx para geração de apresentações
+
+### 📊 Blocos de Relatório Disponíveis
+- KPI Ocupação Geral
+- Gráfico Ocupação por Clínica
+- Gráfico Evolução de Ocupação
+- Tabela Longa Permanência
+- KPI Emergência
+
+### 🔒 Segurança & Hardening
+- HTML escaping em todos os campos de texto (PDF/PPTX/HTML)
+- Limite de blocos por relatório: 12 blocos máximo
+- Limite de linhas por tabela: 100 linhas máximo
+- Timeout configurável para webhooks (padrão: 20s)
+- Validação de entrada e whitelist de blocos permitidos
+- Sanitização de parâmetros em filtros (prédio, clínica, período, mês)
+
+### 🔧 Melhorias Técnicas
+- Novas dependências: requests==2.32.3 (webhook HTTP), python-pptx==0.6.23 (PowerPoint)
+- Configuração de webhook salva em memória (V1); persistência em DB planejada para V2
+- Integração com variáveis de ambiente: N8N_WEBHOOK_URL, MAX_RELATORIO_BLOCKS, MAX_TABELA_ROWS, WEBHOOK_TIMEOUT_SECONDS
+- Deduplicação de blocos selecionados no backend
+- Branch de feature: feature/approved-reports-webhook
+- Documentação: DEPLOY_EASYPANEL_RELATORIOS.md, RELATORIOS_V1_CHANGELOG.md
+
+### 🎨 Interface
+- Nova página /relatorios com layout profissional
+- Menu de navegação atualizado em 5 dashboards (Painel, Emergência, Perfil Paciente, Tempo Permanência, Disponibilidade)
+- Filtros integrados: prédio, clínica, período (datetime range), mês
+- Cards de KPI com valores formatados
+- Gráficos Chart.js renderizados dinamicamente
+- Tabelas responsivas com scroll horizontal
+- Status bar com mensagens de sucesso/erro
+
+## [3.3.9] - 2026-01-08 - Tempo de Permanência Edition (Patch)
 
 ## [3.2.0] - 2025-12-09 - Tempo de Permanência Edition
 ### 🆕 Nova Funcionalidade
