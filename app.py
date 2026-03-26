@@ -3662,8 +3662,10 @@ def _build_relatorios_payload(filters, selected_blocks):
                 sql_status_snapshot = text(f"""
                     SELECT
                         SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) AS ocupados,
-                        SUM(CASE WHEN status_leito = 'VAGO' THEN 1 ELSE 0 END) AS vagos,
-                        SUM(CASE WHEN status_leito = 'IMPEDIDO' THEN 1 ELSE 0 END) AS impedidos,
+                        SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END) AS livres,
+                        SUM(CASE WHEN status_leito = 'CEDIDO' THEN 1 ELSE 0 END) AS cedidos,
+                        SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END) AS reservados,
+                        SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' THEN 1 ELSE 0 END) AS impedidos,
                         COUNT(*) AS total
                     FROM historico_ocupacao_completo
                     WHERE {context['snapshot_where']}
@@ -3676,7 +3678,9 @@ def _build_relatorios_payload(filters, selected_blocks):
             if kpi_row:
                 payload["kpis"].extend([
                     {"id": "ocupados", "label": "Leitos Ocupados", "value": int(kpi_row['ocupados'] or 0)},
-                    {"id": "vagos", "label": "Leitos Vagos", "value": int(kpi_row['vagos'] or 0)},
+                    {"id": "livres", "label": "Leitos Livres", "value": int(kpi_row['livres'] or 0)},
+                    {"id": "cedidos", "label": "Leitos Cedidos", "value": int(kpi_row['cedidos'] or 0)},
+                    {"id": "reservados", "label": "Leitos Reservados", "value": int(kpi_row['reservados'] or 0)},
                     {"id": "impedidos", "label": "Leitos Impedidos", "value": int(kpi_row['impedidos'] or 0)},
                     {"id": "total", "label": "Total de Leitos", "value": int(kpi_row['total'] or 0)}
                 ])
@@ -3684,6 +3688,9 @@ def _build_relatorios_payload(filters, selected_blocks):
         if "kpi_taxa_ocupacao" in blocks:
             kpi_row = get_status_snapshot()
             ocupados = int(kpi_row.get('ocupados') or 0)
+            livres = int(kpi_row.get('livres') or 0)
+            cedidos = int(kpi_row.get('cedidos') or 0)
+            reservados = int(kpi_row.get('reservados') or 0)
             impedidos = int(kpi_row.get('impedidos') or 0)
             total = int(kpi_row.get('total') or 0)
             total_ativos = max(total - impedidos, 0)
@@ -3755,10 +3762,12 @@ def _build_relatorios_payload(filters, selected_blocks):
                 "id": "chart_status_leitos",
                 "title": "Distribuição por Status do Leito",
                 "type": "doughnut",
-                "labels": ["Ocupados", "Vagos", "Impedidos"],
+                "labels": ["Ocupados", "Livres", "Cedidos", "Reservados", "Impedidos"],
                 "data": [
                     int(kpi_row.get('ocupados') or 0),
-                    int(kpi_row.get('vagos') or 0),
+                    int(kpi_row.get('livres') or 0),
+                    int(kpi_row.get('cedidos') or 0),
+                    int(kpi_row.get('reservados') or 0),
                     int(kpi_row.get('impedidos') or 0)
                 ]
             })
@@ -3785,7 +3794,7 @@ def _build_relatorios_payload(filters, selected_blocks):
             sql_impedimentos = text(f"""
                 SELECT COALESCE(NULLIF(motivo_impedimento, ''), 'Não Informado') AS motivo, COUNT(*) AS qtd
                 FROM historico_ocupacao_completo
-                WHERE {context['snapshot_where']} AND status_leito = 'IMPEDIDO'
+                WHERE {context['snapshot_where']} AND status_leito LIKE '%IMPEDIDO%'
                 GROUP BY motivo
                 ORDER BY qtd DESC
                 LIMIT 10
@@ -3834,8 +3843,10 @@ def _build_relatorios_payload(filters, selected_blocks):
                 SELECT
                     nome_enfermaria AS clinica,
                     SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) AS ocupados,
-                    SUM(CASE WHEN status_leito = 'VAGO' THEN 1 ELSE 0 END) AS vagos,
-                    SUM(CASE WHEN status_leito = 'IMPEDIDO' THEN 1 ELSE 0 END) AS impedidos,
+                    SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END) AS livres,
+                    SUM(CASE WHEN status_leito = 'CEDIDO' THEN 1 ELSE 0 END) AS cedidos,
+                    SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END) AS reservados,
+                    SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' THEN 1 ELSE 0 END) AS impedidos,
                     COUNT(*) AS total
                 FROM historico_ocupacao_completo
                 WHERE {context['snapshot_where']}
@@ -3847,7 +3858,9 @@ def _build_relatorios_payload(filters, selected_blocks):
             clinica_table_rows = []
             for r in clinica_rows[:MAX_TABELA_ROWS]:
                 ocupados = int(r['ocupados'] or 0)
-                vagos = int(r['vagos'] or 0)
+                livres = int(r['livres'] or 0)
+                cedidos = int(r['cedidos'] or 0)
+                reservados = int(r['reservados'] or 0)
                 impedidos = int(r['impedidos'] or 0)
                 total = int(r['total'] or 0)
                 total_ativos = max(total - impedidos, 1)
@@ -3855,7 +3868,9 @@ def _build_relatorios_payload(filters, selected_blocks):
                 clinica_table_rows.append([
                     r['clinica'] or '—',
                     ocupados,
-                    vagos,
+                    livres,
+                    cedidos,
+                    reservados,
                     impedidos,
                     total,
                     f"{taxa}%"
@@ -3864,14 +3879,16 @@ def _build_relatorios_payload(filters, selected_blocks):
             payload["tables"].append({
                 "id": "table_ocupacao_por_clinica",
                 "title": "Resumo por Clínica",
-                "columns": ["Clínica", "Ocupados", "Vagos", "Impedidos", "Total", "Taxa Ocupação"],
+                "columns": ["Clínica", "Ocupados", "Livres", "Cedidos", "Reservados", "Impedidos", "Total", "Taxa Ocupação"],
                 "rows": clinica_table_rows
             })
 
         if "table_status_resumo" in blocks:
             kpi_row = get_status_snapshot()
             ocupados = int(kpi_row.get('ocupados') or 0)
-            vagos = int(kpi_row.get('vagos') or 0)
+            livres = int(kpi_row.get('livres') or 0)
+            cedidos = int(kpi_row.get('cedidos') or 0)
+            reservados = int(kpi_row.get('reservados') or 0)
             impedidos = int(kpi_row.get('impedidos') or 0)
             total = int(kpi_row.get('total') or 0)
             payload["tables"].append({
@@ -3880,7 +3897,9 @@ def _build_relatorios_payload(filters, selected_blocks):
                 "columns": ["Status", "Quantidade", "Percentual"],
                 "rows": [
                     ["Ocupado", ocupados, f"{round((ocupados / total) * 100, 1) if total else 0}%"],
-                    ["Vago", vagos, f"{round((vagos / total) * 100, 1) if total else 0}%"],
+                    ["Livre", livres, f"{round((livres / total) * 100, 1) if total else 0}%"],
+                    ["Cedido", cedidos, f"{round((cedidos / total) * 100, 1) if total else 0}%"],
+                    ["Reservado", reservados, f"{round((reservados / total) * 100, 1) if total else 0}%"],
                     ["Impedido", impedidos, f"{round((impedidos / total) * 100, 1) if total else 0}%"],
                     ["Total", total, "100%" if total else "0%"]
                 ]
@@ -4044,15 +4063,25 @@ def export_pptx():
         if kpis:
             slide_kpi = prs.slides.add_slide(prs.slide_layouts[5])
             slide_kpi.shapes.title.text = "Indicadores"
-            y = 1.4
-            for kpi in kpis:
-                box = slide_kpi.shapes.add_textbox(Inches(0.7), Inches(y), Inches(12), Inches(0.5))
-                t = box.text_frame
-                t.text = f"{kpi.get('label', '')}: {kpi.get('value', '—')}"
-                t.paragraphs[0].font.size = Pt(20)
-                y += 0.55
-                if y > 6.8:
+            col_w = Inches(6.0)
+            row_h = Inches(0.75)
+            for i, kpi in enumerate(kpis):
+                col = i % 2
+                row_pos = i // 2
+                x = Inches(0.4 + col * 6.4)
+                y = Inches(1.35 + row_pos * 0.8)
+                if y > Inches(6.8):
                     break
+                box = slide_kpi.shapes.add_textbox(x, y, col_w, row_h)
+                t = box.text_frame
+                t.word_wrap = False
+                p_val = t.paragraphs[0]
+                p_val.text = str(kpi.get('value', '—'))
+                p_val.font.size = Pt(20)
+                p_val.font.bold = True
+                p_lbl = t.add_paragraph()
+                p_lbl.text = kpi.get('label', '')
+                p_lbl.font.size = Pt(11)
 
         for chart in charts:
             image_data = chart.get('image', '')
@@ -4189,25 +4218,25 @@ def export_pdf():
         }}
         .kpi-grid {{
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.4rem;
+            margin-bottom: 1.5rem;
         }}
         .kpi-card {{
             background: #f9fafb;
-            border-left: 4px solid #0b72d9;
-            padding: 1rem;
-            border-radius: 4px;
+            border-left: 3px solid #0b72d9;
+            padding: 0.4rem 0.5rem;
+            border-radius: 3px;
         }}
         .kpi-label {{
-            font-size: 8pt;
+            font-size: 6.5pt;
             color: #6b7280;
             text-transform: uppercase;
             font-weight: 600;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.2rem;
         }}
         .kpi-value {{
-            font-size: 20pt;
+            font-size: 13pt;
             font-weight: bold;
             color: #1f2937;
         }}
