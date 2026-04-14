@@ -63,6 +63,29 @@ def now_brazil():
     return datetime.now(BRAZIL_TZ)
 
 
+def parse_input_date_strict(value):
+    """Parse de data sem ambiguidade.
+
+    Aceita somente:
+    - dd/mm/YYYY
+    - YYYY-mm-dd
+    """
+    if value is None:
+        raise ValueError("Data ausente")
+
+    raw = str(value).strip()
+    if not raw:
+        raise ValueError("Data vazia")
+
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+
+    raise ValueError(f"Formato de data inválido: {raw}. Use dd/mm/aaaa ou aaaa-mm-dd")
+
+
 WEBHOOK_CONFIG = {
     "url": os.getenv('N8N_WEBHOOK_URL', '').strip(),
     "enabled": bool(os.getenv('N8N_WEBHOOK_URL', '').strip())
@@ -144,15 +167,14 @@ def upload_file():
         return redirect(url_for('index'))
 
     try:
-        # --- CORREÇÃO DE DATA (V2) ---
-        # Força dayfirst=True para evitar que 05/01 (Jan) vire 01/05 (Maio)
+        # Parse estrito: evita troca silenciosa entre dia/mês
         try:
-            dt_obj = pd.to_datetime(data_ref_input, dayfirst=True)
-            data_banco = dt_obj.strftime('%Y-%m-%d')  # Formato MySQL (Ano-Mês-Dia)
-            data_visual = dt_obj.strftime('%d/%m/%Y') # Formato Visual (Dia/Mês/Ano)
+            dt_obj = parse_input_date_strict(data_ref_input)
+            data_banco = dt_obj.strftime('%Y-%m-%d')
+            data_visual = dt_obj.strftime('%d/%m/%Y')
             print(f"Data recebida: {data_ref_input} -> Interpretada como: {data_visual}", flush=True)
-        except:
-            flash(f'Formato de data inválido: {data_ref_input}', 'error')
+        except Exception:
+            flash(f'Formato de data inválido: {data_ref_input}. Use dd/mm/aaaa ou aaaa-mm-dd.', 'error')
             return redirect(url_for('index'))
 
         # Leitura do arquivo: aceita CSV e XLS/XLSX e ignora as 2 primeiras linhas (header na 3ª linha)
@@ -226,7 +248,8 @@ def upload_file():
         df_banco = df_banco[cols_uteis]
         
         # Usa a data formatada e segura
-        df_banco['data_referencia'] = data_banco
+        # Grava sempre meia-noite no dia informado para consistência de chave por dia
+        df_banco['data_referencia'] = pd.to_datetime(data_banco)
         
         # --- LIMPEZA BLINDADA ---
         if 'num_enf' in df_banco.columns:
@@ -248,7 +271,10 @@ def upload_file():
         with engine.begin() as conn:
             if tabela_existe:
                 # Remove dados antigos dessa data específica
-                conn.execute(text(f"DELETE FROM historico_ocupacao_completo WHERE data_referencia = '{data_banco}'"))
+                conn.execute(
+                    text("DELETE FROM historico_ocupacao_completo WHERE DATE(data_referencia) = :d"),
+                    {"d": data_banco}
+                )
             
             df_banco.to_sql('historico_ocupacao_completo', con=conn, if_exists='append', index=False)
 
@@ -275,10 +301,10 @@ def fix_date():
         flash('Ambas as datas (errada e correta) são obrigatórias.', 'error')
         return redirect(url_for('index'))
 
-    # Parse dates safely
+    # Parse de datas sem ambiguidade
     try:
-        dt_from = pd.to_datetime(from_date, dayfirst=True)
-        dt_to = pd.to_datetime(to_date, dayfirst=True)
+        dt_from = parse_input_date_strict(from_date)
+        dt_to = parse_input_date_strict(to_date)
         db_from = dt_from.strftime('%Y-%m-%d')
         db_to = dt_to.strftime('%Y-%m-%d')
         visual_from = dt_from.strftime('%d/%m/%Y')
@@ -290,13 +316,23 @@ def fix_date():
     try:
         with engine.begin() as conn:
             # Count how many rows exist for from_date
-            cnt = conn.execute(text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": db_from}).scalar()
+            cnt = conn.execute(
+                text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE DATE(data_referencia) = :d"),
+                {"d": db_from}
+            ).scalar()
             if cnt == 0:
                 flash(f'Nenhum registro encontrado para {visual_from}. Nada foi alterado.', 'error')
                 return redirect(url_for('index'))
 
             # Perform update: move rows to new date
-            result = conn.execute(text("UPDATE historico_ocupacao_completo SET data_referencia = :to WHERE data_referencia = :frm"), {"to": db_to, "frm": db_from})
+            result = conn.execute(
+                text(
+                    "UPDATE historico_ocupacao_completo "
+                    "SET data_referencia = TIMESTAMP(:to, TIME(data_referencia)) "
+                    "WHERE DATE(data_referencia) = :frm"
+                ),
+                {"to": db_to, "frm": db_from}
+            )
             updated = result.rowcount if result is not None else None
 
         flash(f'{updated} registros movidos de {visual_from} para {visual_to}.', 'success')
@@ -320,8 +356,7 @@ def delete_date():
         return redirect(url_for('index'))
 
     try:
-        # Tenta interpretar com dayfirst=True (padrão do sistema)
-        dt = pd.to_datetime(target, dayfirst=True)
+        dt = parse_input_date_strict(target)
         db_target = dt.strftime('%Y-%m-%d')
         visual = dt.strftime('%d/%m/%Y')
     except Exception as e:
@@ -330,28 +365,18 @@ def delete_date():
 
     try:
         with engine.begin() as conn:
-            cnt = conn.execute(text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": db_target}).scalar()
+            cnt = conn.execute(
+                text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE DATE(data_referencia) = :d"),
+                {"d": db_target}
+            ).scalar()
             if cnt == 0:
-                # Tenta interpretação alternativa (dia/mês trocados) para detectar divergências de entrada
-                try:
-                    dt_alt = pd.to_datetime(target, dayfirst=False)
-                    alt_db = dt_alt.strftime('%Y-%m-%d')
-                    alt_visual = dt_alt.strftime('%d/%m/%Y')
-                    cnt_alt = conn.execute(text("SELECT COUNT(*) FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": alt_db}).scalar()
-                except Exception:
-                    cnt_alt = 0
-
-                if cnt_alt > 0:
-                    # Exclui usando a interpretação alternativa e informa o usuário
-                    res = conn.execute(text("DELETE FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": alt_db})
-                    deleted = res.rowcount if res is not None else None
-                    flash(f'{deleted} registros excluídos para {alt_visual} (interpretado automaticamente).', 'success')
-                    return redirect(url_for('index'))
-
                 flash(f'Nenhum registro encontrado para {visual}.', 'error')
                 return redirect(url_for('index'))
 
-            res = conn.execute(text("DELETE FROM historico_ocupacao_completo WHERE data_referencia = :d"), {"d": db_target})
+            res = conn.execute(
+                text("DELETE FROM historico_ocupacao_completo WHERE DATE(data_referencia) = :d"),
+                {"d": db_target}
+            )
             deleted = res.rowcount if res is not None else None
 
         flash(f'{deleted} registros excluídos para {visual}.', 'success')

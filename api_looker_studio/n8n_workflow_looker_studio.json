@@ -1,0 +1,242 @@
+﻿{
+  "name": "LookerStudio - Popular Google Sheets (Backfill + Diário)",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Backfill Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 100]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "start_date",
+              "value": "2026-01-01"
+            },
+            {
+              "name": "end_date",
+              "value": "2026-04-10"
+            },
+            {
+              "name": "sheetId",
+              "value": "1qz_E5x-f7FXvrauztdYeLyBHx3KCk8HjQkM7Tok9kB0"
+            },
+            {
+              "name": "sheetName",
+              "value": "indicadores"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Backfill Dates",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [440, 100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  DATE_FORMAT(DATE(data_referencia), '%d/%m/%Y') AS data,\n  SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) AS ocupado,\n  SUM(CASE WHEN LOWER(status_leito) = 'livre' THEN 1 ELSE 0 END) AS livre,\n  SUM(CASE WHEN LOWER(status_leito) = 'cedido' THEN 1 ELSE 0 END) AS cedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) AS impedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'reservado' THEN 1 ELSE 0 END) AS reservado,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS taxa_ocupacao_pct,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS percentual_impedidos_pct,\n  SUM(CASE WHEN idade >= 60 THEN 1 ELSE 0 END) AS pacientes_60mais,\n  SUM(CASE WHEN idade <= 17 THEN 1 ELSE 0 END) AS pacientes_menor17,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'F%' THEN 1 ELSE 0 END) AS pacientes_mulher,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'M%' THEN 1 ELSE 0 END) AS pacientes_homem,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) > 15 THEN 1 ELSE 0 END) AS longa_permanencia_gt15,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) > 15 AND idade >= 60 THEN 1 ELSE 0 END) AS longa_permanencia_60mais\nFROM historico_ocupacao_completo\nWHERE DATE(data_referencia) BETWEEN STR_TO_DATE('{{$json.start_date}}', '%Y-%m-%d') AND STR_TO_DATE('{{$json.end_date}}', '%Y-%m-%d')\nGROUP BY DATE(data_referencia)\nORDER BY DATE(data_referencia);"
+      },
+      "name": "MySQL Backfill",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2,
+      "position": [680, 100],
+      "credentials": {
+        "mySql": {
+          "id": "",
+          "name": "MYSQL_CREDENTIALS_PLACEHOLDER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const out = [];\nconst fmtPct = (value) => {\n  if (value === null || value === undefined || value === '') return '';\n  return Number(value).toFixed(2).replace('.', ',') + '%';\n};\nfor (const item of items) {\n  const row = item.json;\n  out.push({\n    json: {\n      'data': row.data ?? '',\n      'ocupado': row.ocupado ?? '',\n      'livre': row.livre ?? '',\n      'cedido': row.cedido ?? '',\n      'impedido': row.impedido ?? '',\n      'reservado': row.reservado ?? '',\n      'taxa de ocupaçao geral': fmtPct(row.taxa_ocupacao_pct),\n      'percentual de leitos impedidos': fmtPct(row.percentual_impedidos_pct),\n      'pacientes 60+': row.pacientes_60mais ?? '',\n      'pacientes <= 17': row.pacientes_menor17 ?? '',\n      'pacientes mulher': row.pacientes_mulher ?? '',\n      'pacientes homem': row.pacientes_homem ?? '',\n      'total de pacientes longa permanência > 15dias': row.longa_permanencia_gt15 ?? '',\n      'total de pacientes de longa permanência com mais de 60 anos': row.longa_permanencia_60mais ?? ''\n    }\n  });\n}\nreturn out;"
+      },
+      "name": "Format Rows",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [920, 100]
+    },
+    {
+      "parameters": {
+        "batchSize": 200
+      },
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [1140, 100]
+    },
+    {
+      "parameters": {
+        "time": 500,
+        "unit": "milliseconds"
+      },
+      "name": "Wait Between Batches",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1360, 100]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "1qz_E5x-f7FXvrauztdYeLyBHx3KCk8HjQkM7Tok9kB0",
+        "range": "indicadores!A:N",
+        "valueInputMode": "RAW",
+        "options": {}
+      },
+      "name": "Google Sheets Append",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [1580, 100],
+      "credentials": {
+        "googleSheetsOauth2Api": {
+          "id": "",
+          "name": "GOOGLE_SHEETS_CREDENTIALS_PLACEHOLDER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": "3",
+              "minute": "0"
+            }
+          ]
+        }
+      },
+      "name": "Daily Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 360]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  DATE_FORMAT(DATE(data_referencia), '%d/%m/%Y') AS data,\n  SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) AS ocupado,\n  SUM(CASE WHEN LOWER(status_leito) = 'livre' THEN 1 ELSE 0 END) AS livre,\n  SUM(CASE WHEN LOWER(status_leito) = 'cedido' THEN 1 ELSE 0 END) AS cedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) AS impedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'reservado' THEN 1 ELSE 0 END) AS reservado,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS taxa_ocupacao_pct,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS percentual_impedidos_pct,\n  SUM(CASE WHEN idade >= 60 THEN 1 ELSE 0 END) AS pacientes_60mais,\n  SUM(CASE WHEN idade <= 17 THEN 1 ELSE 0 END) AS pacientes_menor17,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'F%' THEN 1 ELSE 0 END) AS pacientes_mulher,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'M%' THEN 1 ELSE 0 END) AS pacientes_homem,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) > 15 THEN 1 ELSE 0 END) AS longa_permanencia_gt15,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) > 15 AND idade >= 60 THEN 1 ELSE 0 END) AS longa_permanencia_60mais\nFROM historico_ocupacao_completo\nWHERE DATE(data_referencia) = CURDATE()\nGROUP BY DATE(data_referencia);"
+      },
+      "name": "MySQL Daily",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2,
+      "position": [440, 360],
+      "credentials": {
+        "mySql": {
+          "id": "",
+          "name": "MYSQL_CREDENTIALS_PLACEHOLDER"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Backfill Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Backfill Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Backfill Dates": {
+      "main": [
+        [
+          {
+            "node": "MySQL Backfill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL Backfill": {
+      "main": [
+        [
+          {
+            "node": "Format Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Rows": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Between Batches": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets Append",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "MySQL Daily",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL Daily": {
+      "main": [
+        [
+          {
+            "node": "Format Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Append": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "tags": []
+}
+
