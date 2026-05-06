@@ -212,11 +212,20 @@
                             <select id="filter-enfermaria"
                                 class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                 <option value="">Todas</option>
-                                <option value="CLINICA REFERENCIADA">Clínica Referenciada</option>
-                                <option value="CIRURGICA REFERENCIADA">Cirúrgica Referenciada</option>
-                                <option value="CIRURGICA REFERENCIADA - FEMININA">Cirúrgica Feminina</option>
-                                <option value="CIRURGICA REFERENCIADA - MASCULINA">Cirúrgica Masculina</option>
-                                <option value="CLINICA REFERENCIADA - PED">Clínica Pediátrica</option>
+                                <optgroup label="Nomes históricos (até 30/04/2026)">
+                                    <option value="CLINICA REFERENCIADA">Clínica Referenciada</option>
+                                    <option value="CIRURGICA REFERENCIADA">Cirúrgica Referenciada</option>
+                                    <option value="CIRURGICA REFERENCIADA - FEMININA">Cirúrgica Feminina</option>
+                                    <option value="CIRURGICA REFERENCIADA - MASCULINA">Cirúrgica Masculina</option>
+                                    <option value="CLINICA REFERENCIADA - PED">Clínica Pediátrica</option>
+                                </optgroup>
+                                <optgroup label="Novos nomes (a partir de 01/05/2026)">
+                                    <option value="SALA VERMELHA">Sala Vermelha (enf. 111)</option>
+                                    <option value="SALA AMARELA">Sala Amarela (enf. 113)</option>
+                                    <option value="OBSERVAÇÃO">Observação (enf. 114/115)</option>
+                                    <option value="SALA AMARELA PEDIÁTRICA">Sala Amarela Pediátrica (enf. 116)</option>
+                                    <option value="OBSERVAÇÃO - PEDIÁTRICA">Observação Pediátrica (enf. 117)</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div>
@@ -971,7 +980,27 @@
                 document.getElementById('stat-ocupados').textContent = stats.ocupados;
                 document.getElementById('stat-livres').textContent = stats.livres;
                 document.getElementById('stat-impedidos').textContent = stats.impedidos;
-                document.getElementById('stat-taxa').textContent = stats.taxa_ocupacao + '%';
+                
+                // Taxa de ocupação: permite >100% com sinalização visual de sobrecarga
+                const taxaVal = parseFloat(stats.taxa_ocupacao) || 0;
+                const statTaxaEl = document.getElementById('stat-taxa');
+                statTaxaEl.textContent = taxaVal + '%';
+                const taxaCard = statTaxaEl.closest('.bg-gradient-to-br');
+                if (taxaVal > 100) {
+                    if (taxaCard) {
+                        taxaCard.className = taxaCard.className
+                            .replace(/from-purple-\d+/, 'from-red-600')
+                            .replace(/to-purple-\d+/, 'to-red-900');
+                    }
+                    statTaxaEl.title = 'Sobrecarga: emergência opera acima da capacidade nominal (macas extras ativas).';
+                } else {
+                    if (taxaCard) {
+                        taxaCard.className = taxaCard.className
+                            .replace(/from-red-\d+/, 'from-purple-600')
+                            .replace(/to-red-\d+/, 'to-purple-800');
+                    }
+                    statTaxaEl.title = '';
+                }
                 document.getElementById('stat-pediatrico').textContent = stats.pediatrico_ocupados;
                 document.getElementById('stat-pediatrico-total').textContent = stats.pediatrico_total;
                 document.getElementById('stat-tempo-medio').textContent = stats.tempo_medio_permanencia;
@@ -1035,7 +1064,7 @@
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                max: 100,
+                                suggestedMax: 100,
                                 ticks: {
                                     color: textColor,
                                     callback: value => value + '%'

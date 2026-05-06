@@ -145,12 +145,30 @@ DE_PARA = {
 }
 
 # --- ENFERMARIAS DE EMERGÊNCIA ---
+# Mapeamento de num_enf para os setores da emergência (estável entre as atualizações SMSRio)
+# 111=Sala Vermelha, 113=Sala Amarela, 114=Observação, 115=Observação, 116=Sala Amarela Ped., 117=Observação Ped.
+EMERGENCY_WARDS_NUM_ENF = [111, 113, 114, 115, 116, 117]
+EMERGENCY_WARDS_NUM_ENF_SQL = ", ".join(str(n) for n in EMERGENCY_WARDS_NUM_ENF)
+
+# num_enf dos setores pediátricos da emergência (116 e 117)
+PEDIATRIC_WARDS_NUM_ENF = [116, 117]
+PEDIATRIC_WARDS_NUM_ENF_SQL = ", ".join(str(n) for n in PEDIATRIC_WARDS_NUM_ENF)
+
+# Lista de nomes aceitos para filtro manual do usuário
+# Inclui nomes históricos (até 30/04/2026) e novos nomes (a partir de 01/05/2026 - atualização SMSRio)
 EMERGENCY_WARDS = [
+    # Nomes históricos
     'CLINICA REFERENCIADA',
     'CIRURGICA REFERENCIADA',
     'CIRURGICA REFERENCIADA - FEMININA',
     'CIRURGICA REFERENCIADA - MASCULINA',
-    'CLINICA REFERENCIADA - PED'
+    'CLINICA REFERENCIADA - PED',
+    # Novos nomes (a partir de 01/05/2026)
+    'SALA VERMELHA',
+    'SALA AMARELA',
+    'OBSERVAÇÃO',
+    'SALA AMARELA PEDIÁTRICA',
+    'OBSERVAÇÃO - PEDIÁTRICA',
 ]
 
 @app.route('/')
@@ -814,11 +832,10 @@ def api_emergencia_stats():
             where_conditions = []
             params = {}
             
-            # FILTRO PRINCIPAL: Apenas enfermarias de emergência
-            ward_list = "', '".join(EMERGENCY_WARDS)
-            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            # FILTRO PRINCIPAL: filtra por num_enf (estável entre atualizações de nome da SMSRio)
+            where_conditions.append(f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})")
             
-            # Filtro de enfermaria específica
+            # Filtro de enfermaria específica selecionada pelo usuário
             if enfermaria and enfermaria in EMERGENCY_WARDS:
                 where_conditions = [f"nome_enfermaria = :enfermaria"]
                 params['enfermaria'] = enfermaria
@@ -868,13 +885,28 @@ def api_emergencia_stats():
             total = int(stats['total'])
             taxa_ocupacao = round((ocupados / total * 100), 2) if total > 0 else 0
             
-            # Estatística pediátrica
+            # [AUDITORIA NIR] Log de sobrecarga: emergência pode operar acima de 100% com macas dinâmicas
+            if taxa_ocupacao > 100:
+                print(f"[AUDITORIA NIR] Sobrecarga na emergência: {taxa_ocupacao}% "
+                      f"(ocupados={ocupados}, total_leitos_macas={total})", flush=True)
+            
+            # Estatística pediátrica (filtra por num_enf dos setores pediátricos)
+            ped_where = where_clause.replace(
+                f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})",
+                f"num_enf IN ({PEDIATRIC_WARDS_NUM_ENF_SQL})"
+            )
+            # Constrói condições de data para a query pediátrica (reutiliza filtros de período/mês)
+            ped_extra = " AND ".join(
+                c for c in where_conditions
+                if not c.startswith("num_enf IN")
+            )
             sql_ped = text(f"""
                 SELECT 
                     COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ped_ocupados,
                     COUNT(*) as ped_total
                 FROM historico_ocupacao_completo
-                WHERE nome_enfermaria = 'CLINICA REFERENCIADA - PED' {where_clause.replace(f"nome_enfermaria IN ('{ward_list}')", '1=1')}
+                WHERE num_enf IN ({PEDIATRIC_WARDS_NUM_ENF_SQL})
+                    {'AND ' + ped_extra if ped_extra else ''}
             """)
             ped_stats = conn.execute(sql_ped, params).mappings().fetchone()
             ped_ocupados = int(ped_stats['ped_ocupados'])
@@ -887,7 +919,7 @@ def api_emergencia_stats():
                 FROM historico_ocupacao_completo
                 WHERE status_leito = 'OCUPADO' 
                     AND data_internacao IS NOT NULL
-                    AND nome_enfermaria IN ('{ward_list}') {where_clause.replace(f"nome_enfermaria IN ('{ward_list}')", '1=1')}
+                    AND num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL}) {where_clause.replace(f'num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})', '1=1')}
             """)
             tempo_result = conn.execute(sql_tempo, params).scalar()
             tempo_medio = round(float(tempo_result), 1) if tempo_result else 0
@@ -901,7 +933,7 @@ def api_emergencia_stats():
                     AND nome_paciente IS NOT NULL
                     AND nome_paciente != ''
                     AND data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 30 DAY)
-                    AND nome_enfermaria IN ('{ward_list}')
+                    AND num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})
             """)
             pacientes_distintos = conn.execute(sql_rotatividade).scalar() or 0
             rotatividade = round((pacientes_distintos / total), 2) if total > 0 else 0
@@ -941,9 +973,8 @@ def api_emergencia_evolucao():
             where_conditions = []
             params = {}
             
-            # FILTRO PRINCIPAL: Apenas enfermarias de emergência
-            ward_list = "', '".join(EMERGENCY_WARDS)
-            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            # FILTRO PRINCIPAL: filtra por num_enf (estável entre atualizações de nome da SMSRio)
+            where_conditions.append(f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})")
             
             if enfermaria and enfermaria in EMERGENCY_WARDS:
                 where_conditions = [f"nome_enfermaria = :enfermaria"]
@@ -1005,9 +1036,8 @@ def api_emergencia_enfermarias():
             where_conditions = []
             params = {}
             
-            # FILTRO PRINCIPAL: Apenas enfermarias de emergência
-            ward_list = "', '".join(EMERGENCY_WARDS)
-            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            # FILTRO PRINCIPAL: filtra por num_enf (estável entre atualizações de nome da SMSRio)
+            where_conditions.append(f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})")
             
             if periodo_inicio and periodo_fim:
                 where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
@@ -1277,9 +1307,8 @@ def _get_emergencia_range_context(conn, args):
     where_conditions = []
     params = {}
     
-    # FILTRO PRINCIPAL: Apenas enfermarias de emergência
-    ward_list = "', '".join(EMERGENCY_WARDS)
-    where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+    # FILTRO PRINCIPAL: filtra por num_enf (estável entre atualizações de nome da SMSRio)
+    where_conditions.append(f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})")
     
     # Filtro de enfermaria específica
     if enfermaria and enfermaria in EMERGENCY_WARDS:
@@ -1319,8 +1348,7 @@ def _get_emergencia_profile_snapshot_context(conn, args):
     periodo_fim = args.get('periodo_fim')
     mes = args.get('mes')
 
-    ward_list = "', '".join(EMERGENCY_WARDS)
-    base_conditions = [f"nome_enfermaria IN ('{ward_list}')"]
+    base_conditions = [f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})"]
     base_params = {}
 
     if enfermaria and enfermaria in EMERGENCY_WARDS:
@@ -1373,7 +1401,6 @@ def _get_emergencia_profile_range_context(conn, args):
     periodo_fim = args.get('periodo_fim')
     mes = args.get('mes')
 
-    ward_list = "', '".join(EMERGENCY_WARDS)
     where_conditions = ["status_leito = 'OCUPADO'"]
     params = {}
 
@@ -1381,7 +1408,7 @@ def _get_emergencia_profile_range_context(conn, args):
         where_conditions.append("nome_enfermaria = :enfermaria")
         params['enfermaria'] = enfermaria
     else:
-        where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+        where_conditions.append(f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})")
 
     if periodo_inicio and periodo_fim:
         where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
