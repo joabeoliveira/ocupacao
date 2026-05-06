@@ -3,13 +3,37 @@ Sistema de Ocupação de Leitos - NIR Dashboard
 Controle de Versão
 """
 
-VERSION = "3.4.0"
-VERSION_NAME = "Relatórios & Webhooks Edition"
-RELEASE_DATE = "2026-03-26"
+VERSION = "3.5.0"
+VERSION_NAME = "Capacidade Dinâmica Emergência Edition"
+RELEASE_DATE = "2026-05-06"
 
 # Histórico de Versões
 CHANGELOG = """
 # Changelog
+
+## [3.5.0] - 2026-05-06 - Capacidade Dinâmica Emergência Edition
+### 🆕 Compatibilidade SMSRio (atualização 01/05/2026)
+- Filtros de emergência migrados de nome_enfermaria IN para num_enf IN (estável entre mudanças de nome)
+- Suporte simultâneo a nomes históricos (até 30/04/2026) e novos nomes (a partir de 01/05/2026)
+- Taxa de ocupação pode exceder 100% legitimamente (macas extras como leitos dinâmicos)
+- Log [AUDITORIA NIR] no servidor quando taxa_ocupacao > 100%
+- Constantes EMERGENCY_WARDS_NUM_ENF e PEDIATRIC_WARDS_NUM_ENF adicionadas
+- Filtro pediátrico migrado de nome hardcoded para num_enf IN (116, 117)
+- Exclusão automática de pré-parto (num_enf=251) dos cálculos de emergência
+
+### 🎨 Frontend (emergencia.html)
+- Eixo Y do gráfico de evolução: max:100 → suggestedMax:100 (escala dinâmica)
+- Card #stat-taxa fica vermelho quando taxa > 100%, com tooltip explicativo
+- Dropdown de filtro separado em optgroups: nomes históricos e novos nomes SMSRio
+
+### 🔧 Rotas atualizadas
+- api_emergencia_stats, api_emergencia_evolucao, api_emergencia_enfermarias
+- api_emergencia_perfil_paciente, api_emergencia_longa_permanencia, api_emergencia_longa_permanencia_ranking
+- _get_emergencia_range_context, _get_emergencia_profile_snapshot_context, _get_emergencia_profile_range_context
+- kpi_emergencia (bloco de relatórios)
+
+### 🧪 Testes
+- 14 testes unitários: taxa 80%/100%/120%, divisão por zero, constantes num_enf, exclusão pré-parto, mapeamento de nomes
 
 ## [3.4.0] - 2026-03-26 - Relatórios & Webhooks Edition
 ### 🆕 Nova Funcionalidade
