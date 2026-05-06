@@ -1107,8 +1107,7 @@ def api_emergencia_pacientes():
             params = {}
             
             # FILTRO PRINCIPAL: Apenas enfermarias de emergência e ocupados
-            ward_list = "', '".join(EMERGENCY_WARDS)
-            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            where_conditions.append(f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})")
             where_conditions.append("status_leito = 'OCUPADO'")
             
             if enfermaria and enfermaria in EMERGENCY_WARDS:
@@ -1205,8 +1204,7 @@ def api_emergencia_export():
             params = {}
             
             # FILTRO PRINCIPAL: Apenas enfermarias de emergência
-            ward_list = "', '".join(EMERGENCY_WARDS)
-            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            where_conditions.append(f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})")
             
             # Filtro de enfermaria específica
             if enfermaria and enfermaria in EMERGENCY_WARDS:
@@ -2004,8 +2002,7 @@ def api_emergencia_longa_permanencia_ranking():
             params = {}
             
             # FILTRO PRINCIPAL: Apenas enfermarias de emergência
-            ward_list = "', '".join(EMERGENCY_WARDS)
-            where_conditions.append(f"nome_enfermaria IN ('{ward_list}')")
+            where_conditions.append(f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})")
             
             if enfermaria and enfermaria in EMERGENCY_WARDS:
                 where_conditions = [f"nome_enfermaria = :enfermaria"]
@@ -3976,13 +3973,12 @@ def _build_relatorios_payload(filters, selected_blocks):
             })
 
         if "kpi_emergencia" in blocks:
-            ward_list = "', '".join(EMERGENCY_WARDS)
             sql_kpi_emergencia = text(f"""
                 SELECT
                     SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) AS ocupados,
                     COUNT(*) AS total
                 FROM historico_ocupacao_completo
-                WHERE {context['snapshot_where']} AND nome_enfermaria IN ('{ward_list}')
+                WHERE {context['snapshot_where']} AND num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL})
             """)
             e_row = conn.execute(sql_kpi_emergencia, context['snapshot_params']).mappings().first()
             ocupados = int((e_row or {}).get('ocupados') or 0)
