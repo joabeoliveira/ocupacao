@@ -1,0 +1,250 @@
+{
+  "name": "LookerStudio - Atualização Diária Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 16
+            }
+          ]
+        }
+      },
+      "name": "Daily Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        256,
+        64
+      ],
+      "id": "076cb92a-b3ed-4083-a23d-a8e1a42f1bbc"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "sheetId": "1qz_E5x-f7FXvrauztdYeLyBHx3KCk8HjQkM7Tok9kB0",
+        "range": "indicadores!A:A",
+        "dataStartRow": 2,
+        "options": {}
+      },
+      "name": "Read Last Date from Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        496,
+        64
+      ],
+      "id": "65d90776-45c1-4a9d-83c5-67fcc9af1d3e",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wHIpEHjK5qArJxcM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "function parseDateFromSheet(dateStr) {\n  if (!dateStr) return null;\n  const raw = String(dateStr).trim();\n  if (!raw || raw.toLowerCase() === 'data' || raw.toLowerCase() === 'dados') return null;\n\n  const parts = raw.split('/');\n  if (parts.length !== 3) return null;\n\n  const day = Number(parts[0]);\n  const month = Number(parts[1]);\n  const year = Number(parts[2]);\n  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) return null;\n  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 2000) return null;\n\n  const date = new Date(year, month - 1, day);\n  date.setHours(0, 0, 0, 0);\n  return Number.isNaN(date.getTime()) ? null : date;\n}\n\nfunction formatDateToSQL(date) {\n  const year = date.getFullYear();\n  const month = String(date.getMonth() + 1).padStart(2, '0');\n  const day = String(date.getDate()).padStart(2, '0');\n  return `${year}-${month}-${day}`;\n}\n\nconst parsedDates = [];\nfor (const item of items) {\n  if (item.json.values && Array.isArray(item.json.values)) {\n    for (const row of item.json.values) {\n      const date = parseDateFromSheet(Array.isArray(row) ? row[0] : row);\n      if (date) parsedDates.push(date);\n    }\n  }\n\n  const directValue = item.json.dados ?? item.json.data ?? item.json.A;\n  const directDate = parseDateFromSheet(directValue);\n  if (directDate) parsedDates.push(directDate);\n}\n\nconst today = new Date();\ntoday.setHours(0, 0, 0, 0);\n\nif (parsedDates.length === 0) {\n  return [{ json: { target_date: formatDateToSQL(today) } }];\n}\n\nconst lastDate = parsedDates.reduce((maxDate, currentDate) => {\n  return currentDate > maxDate ? currentDate : maxDate;\n});\n\nif (lastDate >= today) {\n  return [];\n}\n\nconst missingDates = [];\nlet currentDate = new Date(lastDate);\ncurrentDate.setDate(currentDate.getDate() + 1);\n\nwhile (currentDate <= today) {\n  missingDates.push({\n    json: {\n      target_date: formatDateToSQL(currentDate)\n    }\n  });\n  currentDate.setDate(currentDate.getDate() + 1);\n}\n\nreturn missingDates;"
+      },
+      "name": "Calculate Missing Dates",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        736,
+        64
+      ],
+      "id": "b9d3404e-4df1-4dc2-b511-02fe3301af3d"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Loop Through Missing Dates",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        976,
+        64
+      ],
+      "id": "cdb6d597-a753-4209-a2bd-e17b441fd2fa"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  DATE_FORMAT(STR_TO_DATE('{{$json.target_date}}', '%Y-%m-%d'), '%d/%m/%Y') AS data,\n  COUNT(*) AS total_registros,\n  SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) AS ocupado,\n  SUM(CASE WHEN LOWER(status_leito) = 'livre' THEN 1 ELSE 0 END) AS livre,\n  SUM(CASE WHEN LOWER(status_leito) = 'cedido' THEN 1 ELSE 0 END) AS cedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) AS impedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'reservado' THEN 1 ELSE 0 END) AS reservado,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS taxa_ocupacao_pct,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS percentual_impedidos_pct,\n  SUM(CASE WHEN idade >= 60 THEN 1 ELSE 0 END) AS pacientes_60mais,\n  SUM(CASE WHEN idade <= 17 THEN 1 ELSE 0 END) AS pacientes_menor17,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'F%' THEN 1 ELSE 0 END) AS pacientes_mulher,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'M%' THEN 1 ELSE 0 END) AS pacientes_homem,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) >= 15 THEN 1 ELSE 0 END) AS longa_permanencia_gt15,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) >= 15 AND idade >= 60 THEN 1 ELSE 0 END) AS longa_permanencia_60mais\nFROM historico_ocupacao_completo\nWHERE DATE(data_referencia) = STR_TO_DATE('{{$json.target_date}}', '%Y-%m-%d');",
+        "options": {}
+      },
+      "name": "MySQL Daily Query",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        64
+      ],
+      "id": "7d715d9b-9262-42dd-a2fb-a945f1b649f1",
+      "credentials": {
+        "mySql": {
+          "id": "qZQBqVl6lhb4YpMw",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const out = [];\nconst fmtPct = (value) => {\n  if (value === null || value === undefined || value === '') return '';\n  return Number(value).toFixed(2).replace('.', ',') + '%';\n};\nfor (const item of items) {\n  const row = item.json;\n\n  // Evita append de dias sem qualquer registro no banco\n  if (Number(row.total_registros ?? 0) === 0) {\n    continue;\n  }\n\n  out.push({\n    json: {\n      'data': row.data ?? '',\n      'ocupado': row.ocupado ?? '',\n      'livre': row.livre ?? '',\n      'cedido': row.cedido ?? '',\n      'impedido': row.impedido ?? '',\n      'reservado': row.reservado ?? '',\n      'taxa de ocupaçao geral': fmtPct(row.taxa_ocupacao_pct),\n      'percentual de leitos impedidos': fmtPct(row.percentual_impedidos_pct),\n      'pacientes 60+': row.pacientes_60mais ?? '',\n      'pacientes <= 17': row.pacientes_menor17 ?? '',\n      'pacientes mulher': row.pacientes_mulher ?? '',\n      'pacientes homem': row.pacientes_homem ?? '',\n      'total de pacientes longa permanência > 15dias': row.longa_permanencia_gt15 ?? '',\n      'total de pacientes de longa permanência com mais de 60 anos': row.longa_permanencia_60mais ?? ''\n    }\n  });\n}\nreturn out;"
+      },
+      "name": "Format Rows",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        64
+      ],
+      "id": "f8dd6498-bc48-40d3-b20d-53d309d063fd"
+    },
+    {
+      "parameters": {
+        "unit": "seconds"
+      },
+      "name": "Rate Limit (Wait)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1696,
+        64
+      ],
+      "id": "35cbecef-40d1-43a2-bd41-75979e48a7b4",
+      "webhookId": "ea7ad782-56bd-4579-9ef5-8810f756bd21"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "append",
+        "sheetId": "1qz_E5x-f7FXvrauztdYeLyBHx3KCk8HjQkM7Tok9kB0",
+        "range": "indicadores!A:N",
+        "options": {}
+      },
+      "name": "Google Sheets Append",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1936,
+        64
+      ],
+      "id": "0f25b1cd-88e1-4bee-abc4-4c186625d6e1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wHIpEHjK5qArJxcM",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Last Date from Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Last Date from Sheet": {
+      "main": [
+        [
+          {
+            "node": "Calculate Missing Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Missing Dates": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Missing Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Through Missing Dates": {
+      "main": [
+        [
+          {
+            "node": "MySQL Daily Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MySQL Daily Query": {
+      "main": [
+        [
+          {
+            "node": "Format Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Rows": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit (Wait)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit (Wait)": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets Append",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Append": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Missing Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "01dda888-32a3-4821-918d-151f43f39db8",
+  "meta": {
+    "instanceId": "0435f3002e081a7fea4f6b9d9fb69e6d66a9ce283c409f889ee2eb8cc504ae5a"
+  },
+  "id": "JIEJhQKjA5tr26FI",
+  "tags": []
+}

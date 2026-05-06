@@ -6,7 +6,11 @@
       "name": "Manual Backfill Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [240, 100]
+      "position": [
+        -304,
+        -400
+      ],
+      "id": "274eae6f-78a0-4b47-9bca-7b7a5cdf8a2f"
     },
     {
       "parameters": {
@@ -35,68 +39,95 @@
       "name": "Set Backfill Dates",
       "type": "n8n-nodes-base.set",
       "typeVersion": 1,
-      "position": [440, 100]
+      "position": [
+        -96,
+        -400
+      ],
+      "id": "1cf10757-ba9b-4532-a2fb-d94d94ad5d5d"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  DATE_FORMAT(DATE(data_referencia), '%d/%m/%Y') AS data,\n  SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) AS ocupado,\n  SUM(CASE WHEN LOWER(status_leito) = 'livre' THEN 1 ELSE 0 END) AS livre,\n  SUM(CASE WHEN LOWER(status_leito) = 'cedido' THEN 1 ELSE 0 END) AS cedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) AS impedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'reservado' THEN 1 ELSE 0 END) AS reservado,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS taxa_ocupacao_pct,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS percentual_impedidos_pct,\n  SUM(CASE WHEN idade >= 60 THEN 1 ELSE 0 END) AS pacientes_60mais,\n  SUM(CASE WHEN idade <= 17 THEN 1 ELSE 0 END) AS pacientes_menor17,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'F%' THEN 1 ELSE 0 END) AS pacientes_mulher,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'M%' THEN 1 ELSE 0 END) AS pacientes_homem,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) > 15 THEN 1 ELSE 0 END) AS longa_permanencia_gt15,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) > 15 AND idade >= 60 THEN 1 ELSE 0 END) AS longa_permanencia_60mais\nFROM historico_ocupacao_completo\nWHERE DATE(data_referencia) BETWEEN STR_TO_DATE('{{$json.start_date}}', '%Y-%m-%d') AND STR_TO_DATE('{{$json.end_date}}', '%Y-%m-%d')\nGROUP BY DATE(data_referencia)\nORDER BY DATE(data_referencia);"
+        "query": "SELECT\n  DATE_FORMAT(MIN(data_referencia), '%d/%m/%Y') AS data,\n  COUNT(*) AS total_registros,\n  SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) AS ocupado,\n  SUM(CASE WHEN LOWER(status_leito) = 'livre' THEN 1 ELSE 0 END) AS livre,\n  SUM(CASE WHEN LOWER(status_leito) = 'cedido' THEN 1 ELSE 0 END) AS cedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) AS impedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'reservado' THEN 1 ELSE 0 END) AS reservado,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS taxa_ocupacao_pct,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS percentual_impedidos_pct,\n  SUM(CASE WHEN idade >= 60 THEN 1 ELSE 0 END) AS pacientes_60mais,\n  SUM(CASE WHEN idade <= 17 THEN 1 ELSE 0 END) AS pacientes_menor17,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'F%' THEN 1 ELSE 0 END) AS pacientes_mulher,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'M%' THEN 1 ELSE 0 END) AS pacientes_homem,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) >= 15 THEN 1 ELSE 0 END) AS longa_permanencia_gt15,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) >= 15 AND idade >= 60 THEN 1 ELSE 0 END) AS longa_permanencia_60mais\nFROM historico_ocupacao_completo\nWHERE DATE(data_referencia) BETWEEN STR_TO_DATE('{{$json.start_date}}', '%Y-%m-%d') AND STR_TO_DATE('{{$json.end_date}}', '%Y-%m-%d')\nGROUP BY DATE(data_referencia)\nORDER BY DATE(data_referencia);",
+        "options": {}
       },
       "name": "MySQL Backfill",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2,
-      "position": [680, 100],
+      "position": [
+        144,
+        -400
+      ],
+      "id": "a7644e15-feae-4355-80f8-c70ed3b21478",
       "credentials": {
         "mySql": {
-          "id": "",
-          "name": "MYSQL_CREDENTIALS_PLACEHOLDER"
+          "id": "qZQBqVl6lhb4YpMw",
+          "name": "MySQL account"
         }
       }
     },
     {
       "parameters": {
-        "functionCode": "const out = [];\nconst fmtPct = (value) => {\n  if (value === null || value === undefined || value === '') return '';\n  return Number(value).toFixed(2).replace('.', ',') + '%';\n};\nfor (const item of items) {\n  const row = item.json;\n  out.push({\n    json: {\n      'data': row.data ?? '',\n      'ocupado': row.ocupado ?? '',\n      'livre': row.livre ?? '',\n      'cedido': row.cedido ?? '',\n      'impedido': row.impedido ?? '',\n      'reservado': row.reservado ?? '',\n      'taxa de ocupaçao geral': fmtPct(row.taxa_ocupacao_pct),\n      'percentual de leitos impedidos': fmtPct(row.percentual_impedidos_pct),\n      'pacientes 60+': row.pacientes_60mais ?? '',\n      'pacientes <= 17': row.pacientes_menor17 ?? '',\n      'pacientes mulher': row.pacientes_mulher ?? '',\n      'pacientes homem': row.pacientes_homem ?? '',\n      'total de pacientes longa permanência > 15dias': row.longa_permanencia_gt15 ?? '',\n      'total de pacientes de longa permanência com mais de 60 anos': row.longa_permanencia_60mais ?? ''\n    }\n  });\n}\nreturn out;"
+        "functionCode": "const out = [];\nconst fmtPct = (value) => {\n  if (value === null || value === undefined || value === '') return '';\n  return Number(value).toFixed(2).replace('.', ',') + '%';\n};\nfor (const item of items) {\n  const row = item.json;\n\n  // Evita append de dias sem qualquer registro no banco\n  if (Number(row.total_registros ?? 0) === 0) {\n    continue;\n  }\n\n  out.push({\n    json: {\n      'data': row.data ?? '',\n      'ocupado': row.ocupado ?? '',\n      'livre': row.livre ?? '',\n      'cedido': row.cedido ?? '',\n      'impedido': row.impedido ?? '',\n      'reservado': row.reservado ?? '',\n      'taxa de ocupaçao geral': fmtPct(row.taxa_ocupacao_pct),\n      'percentual de leitos impedidos': fmtPct(row.percentual_impedidos_pct),\n      'pacientes 60+': row.pacientes_60mais ?? '',\n      'pacientes <= 17': row.pacientes_menor17 ?? '',\n      'pacientes mulher': row.pacientes_mulher ?? '',\n      'pacientes homem': row.pacientes_homem ?? '',\n      'total de pacientes longa permanência > 15dias': row.longa_permanencia_gt15 ?? '',\n      'total de pacientes de longa permanência com mais de 60 anos': row.longa_permanencia_60mais ?? ''\n    }\n  });\n}\nreturn out;"
       },
       "name": "Format Rows",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [920, 100]
+      "position": [
+        384,
+        -400
+      ],
+      "id": "2e003446-33b5-4f14-a408-9c03454ce235"
     },
     {
       "parameters": {
-        "batchSize": 200
+        "batchSize": 200,
+        "options": {}
       },
       "name": "Split In Batches",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 1,
-      "position": [1140, 100]
+      "position": [
+        608,
+        -400
+      ],
+      "id": "65bdba82-7b7f-4908-98ad-9f18b437d632"
     },
     {
       "parameters": {
-        "time": 500,
-        "unit": "milliseconds"
+        "amount": 5,
+        "unit": "seconds"
       },
       "name": "Wait Between Batches",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1,
-      "position": [1360, 100]
+      "position": [
+        816,
+        -400
+      ],
+      "id": "31b3eab1-c126-45a7-983b-26026a6c2d30",
+      "webhookId": "5a817db1-b30c-4c77-8dd5-d65e94f77f2d"
     },
     {
       "parameters": {
+        "authentication": "oAuth2",
         "operation": "append",
         "sheetId": "1qz_E5x-f7FXvrauztdYeLyBHx3KCk8HjQkM7Tok9kB0",
         "range": "indicadores!A:N",
-        "valueInputMode": "RAW",
         "options": {}
       },
       "name": "Google Sheets Append",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 1,
-      "position": [1580, 100],
+      "position": [
+        1040,
+        -400
+      ],
+      "id": "ae484cdb-6054-4c71-ab93-de1b9a8aa0b9",
       "credentials": {
-        "googleSheetsOauth2Api": {
-          "id": "",
-          "name": "GOOGLE_SHEETS_CREDENTIALS_PLACEHOLDER"
+        "googleSheetsOAuth2Api": {
+          "id": "wHIpEHjK5qArJxcM",
+          "name": "Google Sheets account"
         }
       }
     },
@@ -114,25 +145,35 @@
       "name": "Daily Cron Trigger",
       "type": "n8n-nodes-base.cron",
       "typeVersion": 1,
-      "position": [240, 360]
+      "position": [
+        -304,
+        -128
+      ],
+      "id": "2bf5db03-ee01-47f4-9dde-2dc840c2ed1d"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  DATE_FORMAT(DATE(data_referencia), '%d/%m/%Y') AS data,\n  SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) AS ocupado,\n  SUM(CASE WHEN LOWER(status_leito) = 'livre' THEN 1 ELSE 0 END) AS livre,\n  SUM(CASE WHEN LOWER(status_leito) = 'cedido' THEN 1 ELSE 0 END) AS cedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) AS impedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'reservado' THEN 1 ELSE 0 END) AS reservado,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS taxa_ocupacao_pct,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS percentual_impedidos_pct,\n  SUM(CASE WHEN idade >= 60 THEN 1 ELSE 0 END) AS pacientes_60mais,\n  SUM(CASE WHEN idade <= 17 THEN 1 ELSE 0 END) AS pacientes_menor17,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'F%' THEN 1 ELSE 0 END) AS pacientes_mulher,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'M%' THEN 1 ELSE 0 END) AS pacientes_homem,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) > 15 THEN 1 ELSE 0 END) AS longa_permanencia_gt15,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) > 15 AND idade >= 60 THEN 1 ELSE 0 END) AS longa_permanencia_60mais\nFROM historico_ocupacao_completo\nWHERE DATE(data_referencia) = CURDATE()\nGROUP BY DATE(data_referencia);"
+        "query": "SELECT\n  DATE_FORMAT(MIN(data_referencia), '%d/%m/%Y') AS data,\n  COUNT(*) AS total_registros,\n  SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) AS ocupado,\n  SUM(CASE WHEN LOWER(status_leito) = 'livre' THEN 1 ELSE 0 END) AS livre,\n  SUM(CASE WHEN LOWER(status_leito) = 'cedido' THEN 1 ELSE 0 END) AS cedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) AS impedido,\n  SUM(CASE WHEN LOWER(status_leito) = 'reservado' THEN 1 ELSE 0 END) AS reservado,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'ocupado' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS taxa_ocupacao_pct,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(status_leito) = 'impedido' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0),2) AS percentual_impedidos_pct,\n  SUM(CASE WHEN idade >= 60 THEN 1 ELSE 0 END) AS pacientes_60mais,\n  SUM(CASE WHEN idade <= 17 THEN 1 ELSE 0 END) AS pacientes_menor17,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'F%' THEN 1 ELSE 0 END) AS pacientes_mulher,\n  SUM(CASE WHEN UPPER(IFNULL(sexo,'')) LIKE 'M%' THEN 1 ELSE 0 END) AS pacientes_homem,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) >= 15 THEN 1 ELSE 0 END) AS longa_permanencia_gt15,\n  SUM(CASE WHEN data_internacao IS NOT NULL AND DATEDIFF(DATE(data_referencia), DATE(data_internacao)) >= 15 AND idade >= 60 THEN 1 ELSE 0 END) AS longa_permanencia_60mais\nFROM historico_ocupacao_completo\nWHERE DATE(data_referencia) = CURDATE()\nGROUP BY DATE(data_referencia);",
+        "options": {}
       },
       "name": "MySQL Daily",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2,
-      "position": [440, 360],
+      "position": [
+        -96,
+        -128
+      ],
+      "id": "27929beb-e9f9-41ed-bb71-b8f4d416ed97",
       "credentials": {
         "mySql": {
-          "id": "",
-          "name": "MYSQL_CREDENTIALS_PLACEHOLDER"
+          "id": "qZQBqVl6lhb4YpMw",
+          "name": "MySQL account"
         }
       }
     }
   ],
+  "pinData": {},
   "connections": {
     "Manual Backfill Trigger": {
       "main": [
@@ -175,8 +216,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Split In Batches": {
@@ -236,7 +276,14 @@
     }
   },
   "active": false,
-  "settings": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "69eb3f34-9c5c-40e6-9825-397d0f3a601b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0435f3002e081a7fea4f6b9d9fb69e6d66a9ce283c409f889ee2eb8cc504ae5a"
+  },
+  "id": "1si0g90eTuhfKL9g",
   "tags": []
 }
-

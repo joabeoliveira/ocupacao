@@ -1,0 +1,9 @@
+data,ocupado,livre,cedido,impedido,reservado,taxa de ocupaçao geral,percentual de leitos impedidos,pacientes 60+,pacientes >17,pacientes mulher,pacientes homem,total de paciente com mais de 60 anos,total de pacientes longa permanência > 15dias,total de pacientes de longa permanência com mais de 60 anos
+01/01/2026,373,33,3,7,7,"88,20%","1,70%",,,,,,,
+02/01/2026,365,38,2,12,6,"86,30%","2,80%",,,,,,,
+03/01/2026,335,74,0,10,4,"79,20%","2,40%",,,,,,,
+04/01/2026,318,51,1,9,44,"75,20%","2,10%",,,,,,,
+05/01/2026,334,55,0,7,27,"79,00%","1,70%",,,,,,,
+06/01/2026,372,30,1,8,12,"87,90%","1,90%",,,,,,,
+07/01/2026,386,23,2,6,6,"91,30%","1,40%",,,,,,,
+08/01/2026,396,17,1,6,3,"93,60%","1,40%",,,,,,,

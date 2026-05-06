@@ -1,3 +1,22 @@
+# Environment
+.venv/
+env/
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Outputs and data exports
+outputs/
+
+# Editor and tooling
+.vscode/
+.pytest_cache/
+
+# OS files
+Thumbs.db
+.DS_Store
 # Ambiente
 .env
 
