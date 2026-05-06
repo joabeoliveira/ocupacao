@@ -171,6 +171,10 @@ EMERGENCY_WARDS = [
     'OBSERVAÇÃO - PEDIÁTRICA',
 ]
 
+# Capacidade nominal (leitos fixos) da emergência — usada para cálculo comparativo
+# Pode ser sobrescrita pela variável de ambiente `EMERGENCY_NOMINAL_CAPACITY`
+EMERGENCY_NOMINAL_CAPACITY = int(os.getenv('EMERGENCY_NOMINAL_CAPACITY', '50'))
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -884,11 +888,18 @@ def api_emergencia_stats():
             ocupados = int(stats['ocupados'])
             total = int(stats['total'])
             taxa_ocupacao = round((ocupados / total * 100), 2) if total > 0 else 0
-            
+
+            # Taxa vs capacidade nominal (configurável via ENV)
+            taxa_nominal = round((ocupados / EMERGENCY_NOMINAL_CAPACITY) * 100, 1) if EMERGENCY_NOMINAL_CAPACITY else 0
+
             # [AUDITORIA NIR] Log de sobrecarga: emergência pode operar acima de 100% com macas dinâmicas
             if taxa_ocupacao > 100:
-                print(f"[AUDITORIA NIR] Sobrecarga na emergência: {taxa_ocupacao}% "
+                print(f"[AUDITORIA NIR] Sobrecarga dinâmica na emergência: {taxa_ocupacao}% "
                       f"(ocupados={ocupados}, total_leitos_macas={total})", flush=True)
+            # Log adicional quando ocupação excede capacidade nominal cadastrada
+            if taxa_nominal > 100:
+                print(f"[AUDITORIA NIR] Sobrecarga vs capacidade nominal: {taxa_nominal}% "
+                      f"(ocupados={ocupados}, capacidade_nominal={EMERGENCY_NOMINAL_CAPACITY})", flush=True)
             
             # Estatística pediátrica (filtra por num_enf dos setores pediátricos)
             ped_where = where_clause.replace(
@@ -946,6 +957,8 @@ def api_emergencia_stats():
                 "reservados": int(stats['reservados']),
                 "total": total,
                 "taxa_ocupacao": taxa_ocupacao,
+                "taxa_nominal": taxa_nominal,
+                "capacidade_nominal": EMERGENCY_NOMINAL_CAPACITY,
                 "pediatrico_ocupados": ped_ocupados,
                 "pediatrico_total": ped_total,
                 "tempo_medio_permanencia": tempo_medio,
@@ -3983,11 +3996,18 @@ def _build_relatorios_payload(filters, selected_blocks):
             e_row = conn.execute(sql_kpi_emergencia, context['snapshot_params']).mappings().first()
             ocupados = int((e_row or {}).get('ocupados') or 0)
             total = int((e_row or {}).get('total') or 0)
-            taxa = round((ocupados / total) * 100, 1) if total else 0
+            taxa_dinamica = round((ocupados / total) * 100, 1) if total else 0
+            taxa_nominal = round((ocupados / EMERGENCY_NOMINAL_CAPACITY) * 100, 1) if EMERGENCY_NOMINAL_CAPACITY else 0
+            # Log se ultrapassar capacidade nominal
+            if taxa_nominal > 100:
+                print(f"[AUDITORIA NIR] Sobrecarga nominal no KPI de relatórios: {taxa_nominal}% "
+                      f"(ocupados={ocupados}, capacidade_nominal={EMERGENCY_NOMINAL_CAPACITY})", flush=True)
             payload["kpis"].extend([
                 {"id": "emerg_ocupados", "label": "Emergência Ocupados", "value": ocupados},
                 {"id": "emerg_total", "label": "Emergência Total", "value": total},
-                {"id": "emerg_taxa", "label": "Taxa Emergência", "value": f"{taxa}%"}
+                {"id": "emerg_taxa_dinamica", "label": "Taxa (dinâmica)", "value": f"{taxa_dinamica}%"},
+                {"id": "emerg_taxa_nominal", "label": "Taxa (vs nominal)", "value": f"{taxa_nominal}%"},
+                {"id": "emerg_capacidade_nominal", "label": "Capacidade Nominal", "value": EMERGENCY_NOMINAL_CAPACITY}
             ])
 
     return payload
