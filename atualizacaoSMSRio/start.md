@@ -4,13 +4,25 @@
 - Implementar uma atualização no sistema após mudança promovida na base de dados da Plataforma SMSRio.
 
 ## Resumo
-Incialmente cumpre destacar que recetemente a plataforma SMSRio promoveu uma alteração no sistema, em que buscamos os dados para alimentar o nosso sistema de ocupação do Hospital Federal de Bonsucesso.
+- Incialmente cumpre destacar que recetemente a plataforma SMSRio promoveu uma alteração no sistema, em que buscamos os dados para alimentar o nosso sistema de ocupação do Hospital Federal de Bonsucesso.
 
 *** Detalhes ***
 
 1) Alguns nomes de enfermarias na emergência foram alterados.
 
-2) Agora estão incluindo as macas, ocupadas por pacientes na emergência, que ficam aguardando vaga de leitos, quando necessário, como leitos (macas) ocupados.
+a) 111 DE CLINICA REFERENCIADA PARA SALA VERMELHA
+b) 113 DE CIRURGIA REFERENCIADA PARA SALA AMARELA
+c) 114 DE CIRURGIA REFERENCIADA - FEMININA PARA OBSERVAÇÃO
+d) 115 DE CIRURGIA REFERENCIADA - MASCULINA PARA OBSERVAÇÃO
+e) 116 DE CLINICA REFERENCIADA - PED PARA SALA AMARELA - PEDIÁTRICA
+f) 117 DE CLINICA REFERENCIADA - PED PARA OBSERVAÇÃO - PEDIÁTRICA
+
+
+2) Agora estão incluindo as macas, ocupadas por pacientes na emergência, que ficam aguardando vaga de leitos, quando necessário, como leitos (macas) ocupados. 
+
+- Quantidade instalada mudou de 50 para 62 na emergência e antes possuiam um quantitativo de leitos fixos, agora estão sendo computados como leitos as macas instaladas e podem variar os quantitativos.
+
+- Os dados da enfermaria 251 leitos 1 ao 11 antes não eram controlados, agora estamos incluindo no banco apenas com o intuito de alimentar o banco com esses dados. Futuramente poderão ser usados para fins de análise. 
 
 3) O arquivo em csv/excel que é extraído agora considera como macas os leitos das, antes, enfermarias referenciadas, que são as da emergência e com novos nomes e, além disso, não é mais um quantitativo fixo que, pode ser alterado a cada dia, a depender da quantidade de pacientes em macas nas dependências da emergência do HFB.
 
