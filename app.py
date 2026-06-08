@@ -175,6 +175,31 @@ EMERGENCY_WARDS = [
 # Pode ser sobrescrita pela variável de ambiente `EMERGENCY_NOMINAL_CAPACITY`
 EMERGENCY_NOMINAL_CAPACITY = int(os.getenv('EMERGENCY_NOMINAL_CAPACITY', '50'))
 
+# Cenários executivos da página "Ocupação de Leitos"
+PREPARTO_WARD_NUM_ENF = 251
+PANEL_SCENARIOS = {
+    "eletivos": {
+        "label": "Leitos Eletivos",
+        "capacity": 373,
+        "where_sql": f"num_enf NOT IN ({EMERGENCY_WARDS_NUM_ENF_SQL}, {PREPARTO_WARD_NUM_ENF})",
+    },
+    "emergencia_preparto": {
+        "label": "Emergência + Parto/Pré-parto",
+        "capacity": 61,
+        "where_sql": f"num_enf IN ({EMERGENCY_WARDS_NUM_ENF_SQL}, {PREPARTO_WARD_NUM_ENF})",
+    },
+    "preparto": {
+        "label": "Parto e Pré-parto (Enf. 251)",
+        "capacity": 11,
+        "where_sql": f"num_enf = {PREPARTO_WARD_NUM_ENF}",
+    },
+}
+
+
+def _get_panel_scenario_key(raw_value):
+    key = (raw_value or "eletivos").strip().lower()
+    return key if key in PANEL_SCENARIOS else "eletivos"
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -528,28 +553,23 @@ def api_history():
 
 @app.route('/api/painel/stats')
 def api_painel_stats():
-    """Retorna estatísticas do painel de ocupação com suporte a filtros"""
+    """Retorna estatísticas executivas com cenários fixos e filtros de período."""
     if not db_status:
         return {"error": "Banco não conectado"}, 500
     
     try:
         # Captura filtros da query string
-        predio = request.args.get('predio')
+        cenario = _get_panel_scenario_key(request.args.get('cenario'))
         periodo_inicio = request.args.get('periodo_inicio')
         periodo_fim = request.args.get('periodo_fim')
         mes = request.args.get('mes')
-        clinica = request.args.get('clinica')
+        scenario_cfg = PANEL_SCENARIOS[cenario]
+        capacidade_fixa = int(scenario_cfg['capacity'])
         
         with engine.connect() as conn:
-            # Monta condições WHERE dinamicamente
-            where_conditions = []
+            # Monta condições WHERE dinamicamente (sempre iniciando pelo cenário)
+            where_conditions = [scenario_cfg['where_sql']]
             params = {}
-            
-            # Filtro de prédio (baseado no num_enf)
-            if predio == '1':
-                where_conditions.append("num_enf BETWEEN 111 AND 199")
-            elif predio == '2':
-                where_conditions.append("num_enf BETWEEN 200 AND 299")
             
             # Filtro de período
             if periodo_inicio and periodo_fim:
@@ -575,67 +595,80 @@ def api_painel_stats():
                 params['mes'] = month
                 params['ano'] = year
             
-            # Filtro de clínica
-            if clinica:
-                where_conditions.append("nome_enfermaria = :clinica")
-                params['clinica'] = clinica
-            
             # Monta SQL com WHERE dinâmico
-            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+            where_clause = " AND ".join(where_conditions)
             
             sql_stats = text(f"""
                 SELECT 
                     COALESCE(SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END), 0) as ocupados,
                     COALESCE(SUM(CASE WHEN status_leito = 'LIVRE' THEN 1 ELSE 0 END), 0) as livres,
                     COALESCE(SUM(CASE WHEN status_leito = 'CEDIDO' THEN 1 ELSE 0 END), 0) as cedidos,
-                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' THEN 1 ELSE 0 END), 0) as impedidos,
+                    COALESCE(SUM(CASE WHEN status_leito LIKE '%IMPEDIDO%' OR status_leito LIKE '%BLOQUEADO%' THEN 1 ELSE 0 END), 0) as impedidos,
                     COALESCE(SUM(CASE WHEN status_leito = 'RESERVADO' THEN 1 ELSE 0 END), 0) as reservados,
-                    COUNT(*) as total
+                    COUNT(*) as total_registros
                 FROM historico_ocupacao_completo
                 WHERE {where_clause}
             """)
             stats = conn.execute(sql_stats, params).mappings().fetchone()
+
+            ocupados = int(stats['ocupados'])
+            livres = int(stats['livres'])
+            cedidos = int(stats['cedidos'])
+            impedidos = int(stats['impedidos'])
+            reservados = int(stats['reservados'])
+            total_registros = int(stats['total_registros'])
+
+            extras_uso = max(0, ocupados - capacidade_fixa)
+            taxa_geral = round((ocupados / capacidade_fixa) * 100, 1) if capacidade_fixa > 0 else 0.0
+            capacidade_operacional = max(1, capacidade_fixa - impedidos)
+            taxa_operacional = round((ocupados / capacidade_operacional) * 100, 1)
+            taxa_impedidos = round((impedidos / capacidade_fixa) * 100, 1) if capacidade_fixa > 0 else 0.0
             
             return {
-                "ocupados": int(stats['ocupados']),
-                "livres": int(stats['livres']),
-                "cedidos": int(stats['cedidos']),
-                "impedidos": int(stats['impedidos']),
-                "reservados": int(stats['reservados']),
-                "total": int(stats['total'])
+                "cenario": cenario,
+                "cenario_label": scenario_cfg['label'],
+                "ocupados": ocupados,
+                "livres": livres,
+                "cedidos": cedidos,
+                "impedidos": impedidos,
+                "reservados": reservados,
+                "total": capacidade_fixa,
+                "total_registros": total_registros,
+                "extras_uso": extras_uso,
+                "taxa_geral": taxa_geral,
+                "taxa_operacional": taxa_operacional,
+                "taxa_impedidos": taxa_impedidos
             }
     except Exception as e:
         return {"error": str(e)}, 500
 
 @app.route('/api/painel/evolucao')
 def api_painel_evolucao():
-    """Retorna evolução mensal para gráfico com suporte a filtros"""
+    """Retorna evolução mensal (média mensal) da taxa de ocupação geral por cenário."""
     if not db_status:
         return {"error": "Banco não conectado"}, 500
     
     try:
         # Captura filtros
-        predio = request.args.get('predio')
+        cenario = _get_panel_scenario_key(request.args.get('cenario'))
         periodo_inicio = request.args.get('periodo_inicio')
         periodo_fim = request.args.get('periodo_fim')
         mes = request.args.get('mes')
-        clinica = request.args.get('clinica')
+        scenario_cfg = PANEL_SCENARIOS[cenario]
+        capacidade_fixa = int(scenario_cfg['capacity'])
         
         with engine.connect() as conn:
             # Monta condições WHERE
-            where_conditions = []
+            where_conditions = [scenario_cfg['where_sql']]
             params = {}
-            
-            # Filtro de prédio
-            if predio == '1':
-                where_conditions.append("num_enf BETWEEN 111 AND 199")
-            elif predio == '2':
-                where_conditions.append("num_enf BETWEEN 200 AND 299")
             
             if periodo_inicio and periodo_fim:
                 where_conditions.append("data_referencia BETWEEN :periodo_inicio AND :periodo_fim")
                 params['periodo_inicio'] = periodo_inicio
                 params['periodo_fim'] = periodo_fim
+            elif not mes:
+                # Padrão: últimos 12 meses a partir da última data disponível
+                where_conditions.append("data_referencia >= DATE_SUB((SELECT MAX(data_referencia) FROM historico_ocupacao_completo), INTERVAL 12 MONTH)")
             
             if mes:
                 year, month = _parse_mes_param(conn, mes)
@@ -646,26 +679,31 @@ def api_painel_evolucao():
                 params['mes'] = month
                 params['ano'] = year
             
-            if clinica:
-                where_conditions.append("nome_enfermaria = :clinica")
-                params['clinica'] = clinica
-            
-            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+            where_clause = " AND ".join(where_conditions)
+            params['capacidade_fixa'] = capacidade_fixa
             
             sql_evolucao = text(f"""
-                SELECT DATE_FORMAT(data_referencia, '%Y-%m') as mes,
-                    SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados,
-                    COUNT(*) as total
-                FROM historico_ocupacao_completo
-                WHERE {where_clause}
-                GROUP BY mes
+                SELECT
+                    DATE_FORMAT(base.data_referencia, '%Y-%m') as mes,
+                    ROUND(AVG((base.ocupados / :capacidade_fixa) * 100), 1) as taxa_media
+                FROM (
+                    SELECT
+                        data_referencia,
+                        SUM(CASE WHEN status_leito = 'OCUPADO' THEN 1 ELSE 0 END) as ocupados
+                    FROM historico_ocupacao_completo
+                    WHERE {where_clause}
+                    GROUP BY data_referencia
+                ) base
+                GROUP BY DATE_FORMAT(base.data_referencia, '%Y-%m')
                 ORDER BY mes
             """)
             evolucao = conn.execute(sql_evolucao, params).mappings().all()
             
             return {
                 "labels": [row['mes'] for row in evolucao],
-                "data": [round((int(row['ocupados']) / int(row['total'])) * 100, 1) for row in evolucao]
+                "data": [float(row['taxa_media']) if row['taxa_media'] is not None else 0.0 for row in evolucao],
+                "cenario": cenario,
+                "cenario_label": scenario_cfg['label']
             }
     except Exception as e:
         return {"error": str(e)}, 500

@@ -149,3 +149,100 @@ ORDER BY dias_internado DESC
 LIMIT 500;
 
 -- Fim do arquivo
+
+  -- =====================================================
+  -- Novas consultas adicionadas em 13/05/2026
+  -- 12) Internações por data de internação (01/05/2026 a 08/05/2026) — Painel por prédio (colunas fixas)
+  -- Retorna uma linha por dia com totais para Prédio 1 e Prédio 2
+  WITH RECURSIVE dias AS (
+    SELECT DATE('2026-05-01') AS dia
+    UNION ALL
+    SELECT DATE_ADD(dia, INTERVAL 1 DAY)
+    FROM dias
+    WHERE dia < DATE('2026-05-08')
+  ),
+  internacoes_unicas AS (
+    SELECT DISTINCT
+      DATE(h.data_internacao) AS dia,
+      CASE
+        WHEN h.num_enf BETWEEN 111 AND 199 THEN 'Predio 1'
+        WHEN h.num_enf BETWEEN 200 AND 299 THEN 'Predio 2'
+        ELSE 'Fora'
+      END AS predio,
+      CONCAT_WS('|',
+        COALESCE(h.prontuario, ''),
+        COALESCE(h.cns_paciente, ''),
+        COALESCE(h.nome_paciente, ''),
+        DATE_FORMAT(h.data_internacao, '%Y-%m-%d %H:%i:%s')
+      ) AS chave_internacao
+    FROM historico_ocupacao_completo h
+    WHERE h.data_internacao >= '2026-05-01'
+      AND h.data_internacao <  '2026-05-09'
+      AND h.num_enf BETWEEN 111 AND 299
+  ),
+  agregado AS (
+    SELECT
+      dia,
+      SUM(CASE WHEN predio = 'Predio 1' THEN 1 ELSE 0 END) AS predio_1_total,
+      SUM(CASE WHEN predio = 'Predio 2' THEN 1 ELSE 0 END) AS predio_2_total
+    FROM internacoes_unicas
+    GROUP BY dia
+  )
+  SELECT
+    d.dia,
+    COALESCE(a.predio_1_total, 0) AS predio_1_total,
+    COALESCE(a.predio_2_total, 0) AS predio_2_total,
+    COALESCE(a.predio_1_total, 0) + COALESCE(a.predio_2_total, 0) AS total_geral_dia
+  FROM dias d
+  LEFT JOIN agregado a ON a.dia = d.dia
+  ORDER BY d.dia;
+
+  -- 13) Internações diárias por prédio e clínica (detalhado)
+  -- Retorna linhas dia x prédio x clínica com total de internados (01/05/2026 a 08/05/2026)
+  WITH RECURSIVE dias AS (
+    SELECT DATE('2026-05-01') AS dia
+    UNION ALL
+    SELECT DATE_ADD(dia, INTERVAL 1 DAY)
+    FROM dias
+    WHERE dia < DATE('2026-05-08')
+  ),
+  internacoes_unicas AS (
+    SELECT DISTINCT
+      DATE(h.data_internacao) AS dia,
+      CASE
+        WHEN h.num_enf BETWEEN 111 AND 199 THEN 'Predio 1'
+        WHEN h.num_enf BETWEEN 200 AND 299 THEN 'Predio 2'
+        ELSE 'Fora'
+      END AS predio,
+      h.nome_enfermaria AS clinica,
+      CONCAT_WS('|',
+        COALESCE(h.prontuario, ''),
+        COALESCE(h.cns_paciente, ''),
+        COALESCE(h.nome_paciente, ''),
+        DATE_FORMAT(h.data_internacao, '%Y-%m-%d %H:%i:%s')
+      ) AS chave_internacao
+    FROM historico_ocupacao_completo h
+    WHERE h.data_internacao >= '2026-05-01'
+      AND h.data_internacao <  '2026-05-09'
+      AND h.num_enf BETWEEN 111 AND 299
+  ),
+  agregado AS (
+    SELECT
+      dia,
+      predio,
+      clinica,
+      COUNT(*) AS total_internados
+    FROM internacoes_unicas
+    WHERE predio IN ('Predio 1', 'Predio 2')
+    GROUP BY dia, predio, clinica
+  )
+  SELECT
+    d.dia,
+    a.predio,
+    a.clinica,
+    COALESCE(a.total_internados, 0) AS total_internados_no_dia
+  FROM dias d
+  LEFT JOIN agregado a ON a.dia = d.dia
+  ORDER BY d.dia, a.predio, a.clinica;
+
+  -- =====================================================
