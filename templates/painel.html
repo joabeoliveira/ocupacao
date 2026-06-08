@@ -137,6 +137,27 @@
         .progress-ring-circle {
             transition: stroke-dashoffset 0.5s ease;
         }
+        .scenario-tab {
+            border: 1px solid #374151;
+            background: #111827;
+            color: #9CA3AF;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .scenario-tab:hover {
+            border-color: #3B82F6;
+            color: #DBEAFE;
+        }
+        .scenario-tab.active {
+            background: linear-gradient(to right, #1D4ED8, #2563EB);
+            border-color: #60A5FA;
+            color: #FFFFFF;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
     </style>
 </head>
 <body class="font-sans" style="background-color: var(--bg-primary);">
@@ -201,25 +222,30 @@
                     </div>
                 </nav>
 
+                <div class="bg-gray-800 rounded-lg shadow-2xl p-4 mb-6 border border-gray-700 animate-fade-in">
+                    <div class="text-sm font-semibold text-gray-300 mb-3">
+                        Selecione a fotografia de análise:
+                    </div>
+                    <div class="flex gap-2 overflow-x-auto">
+                        <button id="scenario-btn-eletivos" class="scenario-tab active" onclick="setScenario('eletivos')">
+                            Cenário 1: Eletivos (373)
+                        </button>
+                        <button id="scenario-btn-emergencia_preparto" class="scenario-tab" onclick="setScenario('emergencia_preparto')">
+                            Cenário 2: Emergência + Parto/Pré-parto (61)
+                        </button>
+                        <button id="scenario-btn-preparto" class="scenario-tab" onclick="setScenario('preparto')">
+                            Cenário 3: Parto/Pré-parto (11)
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Filters Panel -->
                 <div id="filters-panel" class="bg-gray-800 rounded-lg shadow-2xl p-6 mb-6 hidden animate-fade-in border border-gray-700">
                     <h3 class="text-lg font-bold text-white mb-4">
                         <i class="fas fa-filter mr-2 text-blue-400"></i>
                         Filtros
                     </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">
-                                <i class="fas fa-camera mr-1"></i>
-                                Cenário
-                            </label>
-                            <select id="filter-cenario"
-                                class="w-full px-3 py-2 bg-gray-900 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="eletivos" selected>Leitos Eletivos (373)</option>
-                                <option value="emergencia_preparto">Emergência + Parto/Pré-parto (61)</option>
-                                <option value="preparto">Parto e Pré-parto (Enf. 251, 11)</option>
-                            </select>
-                        </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-calendar-alt mr-1"></i>
@@ -535,10 +561,29 @@
             panel.classList.toggle('hidden');
         }
 
+        function updateScenarioTabs() {
+            ['eletivos', 'emergencia_preparto', 'preparto'].forEach((key) => {
+                const btn = document.getElementById(`scenario-btn-${key}`);
+                if (!btn) return;
+                if (currentFilters.cenario === key) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        function setScenario(cenario) {
+            currentFilters.cenario = cenario;
+            updateScenarioTabs();
+            updateFiltersIndicator();
+            refreshData();
+        }
+
         // Apply filters
         function applyFilters() {
             currentFilters = {
-                cenario: document.getElementById('filter-cenario').value,
+                cenario: currentFilters.cenario || 'eletivos',
                 periodo_inicio: document.getElementById('filter-periodo-inicio').value,
                 periodo_fim: document.getElementById('filter-periodo-fim').value,
                 mes: document.getElementById('filter-mes').value
@@ -563,14 +608,6 @@
             
             if (Object.keys(currentFilters).length > 0) {
                 const filterLabels = [];
-                if (currentFilters.cenario) {
-                    const cenarios = {
-                        eletivos: 'Eletivos (373)',
-                        emergencia_preparto: 'Emergência + Parto/Pré-parto (61)',
-                        preparto: 'Parto/Pré-parto (11)'
-                    };
-                    filterLabels.push(`Cenário: ${cenarios[currentFilters.cenario] || currentFilters.cenario}`);
-                }
                 if (currentFilters.periodo_inicio && currentFilters.periodo_fim) {
                     filterLabels.push(`${currentFilters.periodo_inicio} a ${currentFilters.periodo_fim}`);
                 }
@@ -584,15 +621,25 @@
             } else {
                 indicator.classList.add('hidden');
             }
+
+            if (filterLabelsLength(currentFilters) === 0) {
+                indicator.classList.add('hidden');
+            }
+        }
+
+        function filterLabelsLength(filters) {
+            let count = 0;
+            if (filters.periodo_inicio && filters.periodo_fim) count += 1;
+            if (filters.mes) count += 1;
+            return count;
         }
 
         // Clear filters
         function clearFilters() {
-            document.getElementById('filter-cenario').value = 'eletivos';
             document.getElementById('filter-periodo-inicio').value = '';
             document.getElementById('filter-periodo-fim').value = '';
             document.getElementById('filter-mes').value = '';
-            currentFilters = { cenario: 'eletivos' };
+            currentFilters = { cenario: currentFilters.cenario || 'eletivos' };
             updateFiltersIndicator();
             refreshData();
         }
@@ -765,6 +812,7 @@
             loadTheme();
             initMobileMenu();
             loadVersion();
+            updateScenarioTabs();
             updateFiltersIndicator();
             loadStats();
             loadEvolucaoChart();
